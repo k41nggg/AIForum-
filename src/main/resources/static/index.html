@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIForum 测试面板</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding-top: 50px; background-color: #f8f9fa; }
+        .card { margin-bottom: 20px; }
+        #response-console { background: #333; color: #fff; padding: 15px; border-radius: 5px; min-height: 200px; max-height: 400px; overflow-y: auto; font-family: monospace; }
+        .token-display { word-break: break-all; font-size: 0.8rem; color: #666; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 class="mb-4 text-center">AIForum 功能测试面板</h1>
+
+    <div class="row">
+        <!-- 注册登录列 -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">用户注册</div>
+                <div class="card-body">
+                    <form id="reg-form">
+                        <input type="text" class="form-control mb-2" id="reg-username" placeholder="用户名" required>
+                        <input type="password" class="form-control mb-2" id="reg-password" placeholder="密码" required>
+                        <input type="email" class="form-control mb-2" id="reg-email" placeholder="邮箱" required>
+                        <input type="text" class="form-control mb-2" id="reg-nickname" placeholder="昵称">
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary w-50">普通用户注册</button>
+                            <button type="button" class="btn btn-danger w-50" onclick="registerAdmin()">管理员注册</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header bg-success text-white">用户登录</div>
+                <div class="card-body">
+                    <form id="login-form">
+                        <input type="text" class="form-control mb-2" id="login-username" placeholder="用户名" required>
+                        <input type="password" class="form-control mb-2" id="login-password" placeholder="密码" required>
+                        <button type="submit" class="btn btn-success w-100">登录</button>
+                    </form>
+                    <div class="mt-2 token-display" id="token-status">未登录</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 个人信息与功能列 -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-info text-white d-flex justify-content-between">
+                    <span>个人中心 / 受保护接口测试</span>
+                    <button class="btn btn-sm btn-light" onclick="clearToken()">清除Token</button>
+                </div>
+                <div class="card-body">
+                    <div class="btn-group mb-3">
+                        <button class="btn btn-outline-info" onclick="fetchMe()">获取我的信息 (/me)</button>
+                        <button class="btn btn-outline-info" onclick="logout()">测试登出</button>
+                    </div>
+
+                    <form id="profile-form" class="row g-2">
+                        <div class="col-md-6">
+                            <input type="text" class="form-control" id="profile-nickname" placeholder="修改昵称">
+                        </div>
+                        <div class="col-md-6">
+                            <input type="text" class="form-control" id="profile-bio" placeholder="修改简介">
+                        </div>
+                        <div class="col-12 text-end">
+                            <button type="submit" class="btn btn-warning">更新资料</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header bg-dark text-white">响应日志 (JSON)</div>
+                <div class="card-body p-0">
+                    <pre id="response-console">等待操作...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_BASE = '/api';
+    let token = localStorage.getItem('jwt_token');
+
+    if(token) {
+        document.getElementById('token-status').innerText = '当前已有Token';
+    }
+
+    function log(data) {
+        const console = document.getElementById('response-console');
+        console.innerText = JSON.stringify(data, null, 2);
+    }
+
+    async function request(url, method = 'GET', body = null) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) {
+            headers['Authorization'] = 'Bearer ' + token;
+        }
+
+        try {
+            const options = { method, headers };
+            if (body) options.body = JSON.stringify(body);
+
+            const response = await fetch(API_BASE + url, options);
+            const data = await response.json();
+            log(data);
+            return data;
+        } catch (err) {
+            log({ error: '网络错误', detail: err.message });
+            return null;
+        }
+    }
+
+    // 注册逻辑
+    document.getElementById('reg-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const body = {
+            username: document.getElementById('reg-username').value,
+            password: document.getElementById('reg-password').value,
+            email: document.getElementById('reg-email').value,
+            nickname: document.getElementById('reg-nickname').value
+        };
+        await request('/auth/register', 'POST', body);
+    };
+
+    async function registerAdmin() {
+        const body = {
+            username: document.getElementById('reg-username').value,
+            password: document.getElementById('reg-password').value,
+            email: document.getElementById('reg-email').value,
+            nickname: document.getElementById('reg-nickname').value
+        };
+        if (!body.username || !body.password || !body.email) {
+            alert('请填写用户名、密码和邮箱');
+            return;
+        }
+        await request('/auth/admin/register', 'POST', body);
+    }
+
+    // 登录逻辑
+    document.getElementById('login-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const body = {
+            username: document.getElementById('login-username').value,
+            password: document.getElementById('login-password').value
+        };
+        const res = await request('/auth/login', 'POST', body);
+        if (res && res.code === 200) {
+            token = res.data.token;
+            localStorage.setItem('jwt_token', token);
+            document.getElementById('token-status').innerText = '登录成功，Token已保存';
+        }
+    };
+
+    async function fetchMe() {
+        await request('/users/me');
+    }
+
+    async function logout() {
+        await request('/auth/logout', 'POST');
+    }
+
+    document.getElementById('profile-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const body = {
+            nickname: document.getElementById('profile-nickname').value,
+            bio: document.getElementById('profile-bio').value
+        };
+        await request('/users/profile', 'PUT', body);
+    };
+
+    function clearToken() {
+        localStorage.removeItem('jwt_token');
+        token = null;
+        document.getElementById('token-status').innerText = 'Token已清除';
+        log('Token已清除');
+    }
+</script>
+</body>
+</html>

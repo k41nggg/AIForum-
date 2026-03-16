@@ -1,3 +1,32 @@
 spring:
   application:
-    name: demo
+    name: aiforum
+  datasource:
+    url: jdbc:mysql://localhost:3306/aiforum?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowMultiQueries=true
+    username: root
+    password: "123123123"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  mail:
+    host: smtp.example.com
+    username: your-email@example.com
+    password: your-email-password
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.zhidao.demo.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+jwt:
+  secret: "your-very-very-long-and-secure-jwt-secret-key-for-this-project"
+  expiration: 86400000 # 24 hours
+
+logging:
+  level:
+    com.zhidao.demo: debug
