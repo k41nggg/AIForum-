@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIForum - 分类管理 & 订阅</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f7f6; padding-top: 20px; }
+        .category-card { transition: transform 0.2s; border: none; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .category-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .sidebar { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        #response-log { background: #2d2d2d; color: #adadad; padding: 10px; border-radius: 5px; font-size: 0.8rem; max-height: 200px; overflow-y: auto; }
+        .navbar-brand { font-weight: bold; color: #0d6efd !important; }
+        .hot-tag { font-size: 0.75rem; background: #ff4757; color: white; padding: 2px 6px; border-radius: 4px; margin-left: 5px; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm mb-4">
+    <div class="container">
+        <a class="navbar-brand" href="#">AIForum 分类中心</a>
+        <div class="d-flex align-items-center">
+            <span id="user-status" class="me-3 text-muted small">未登录</span>
+            <div class="btn-group">
+                <a href="index.html" class="btn btn-outline-secondary btn-sm">账号管理</a>
+                <a href="posts.html" class="btn btn-outline-primary btn-sm">帖子管理</a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row">
+        <!-- 左侧：管理面板 -->
+        <div class="col-md-4">
+            <div class="sidebar mb-4">
+                <h5 class="mb-3">管理与统计</h5>
+                <div id="admin-tools" style="display: none;">
+                    <button class="btn btn-primary w-100 mb-2" data-bs-toggle="modal" data-bs-target="#createCategoryModal">
+                        <i class="fa fa-plus me-1"></i> 创建新分类
+                    </button>
+                    <hr>
+                </div>
+
+                <h6 class="text-muted mb-2 small">热门话题排行</h6>
+                <div id="hot-categories" class="list-group list-group-flush mb-3">
+                    <!-- 热门话题加载区域 -->
+                    <div class="text-center p-3 text-muted small">加载中心...</div>
+                </div>
+
+                <h6 class="text-muted mb-2 small">API 响应日志</h6>
+                <pre id="response-log">等待交互...</pre>
+            </div>
+        </div>
+
+        <!-- 右侧：分类列表 -->
+        <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>所有话题分类</h4>
+                <button class="btn btn-sm btn-outline-secondary" onclick="loadCategories()">
+                    <i class="fa fa-sync"></i> 刷新
+                </button>
+            </div>
+            <div id="categories-container" class="row">
+                <!-- 分类卡片加载区域 -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 创建分类模态框 -->
+<div class="modal fade" id="createCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新增分类</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">名称</label>
+                    <input type="text" id="cat-name" class="form-control" placeholder="如：Java技术">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">父分类</label>
+                    <select id="cat-parent-id" class="form-select">
+                        <option value="0">无（顶级分类）</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">描述</label>
+                    <textarea id="cat-desc" class="form-control" rows="3" placeholder="简要介绍这个分类..."></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">排序值</label>
+                    <input type="number" id="cat-sort" class="form-control" value="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitCategory()">创建</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script>
+    const API_BASE = '/api';
+    let token = localStorage.getItem('jwt_token');
+    let userRole = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!token) {
+            alert('请先登录！');
+            window.location.href = 'index.html';
+            return;
+        }
+        checkUser();
+        loadCategories();
+        loadHotCategories();
+    });
+
+    function log(data) {
+        const console = document.getElementById('response-log');
+        console.innerText = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    }
+
+    async function checkUser() {
+        if (!token) return;
+        try {
+            const res = await fetch(API_BASE + '/users/me', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+            if (data.code === 200) {
+                userRole = data.data.role;
+                document.getElementById('user-status').innerHTML = `<i class="fa fa-user me-1"></i> ${data.data.nickname || data.data.username}`;
+                if (userRole === 'ADMIN') {
+                    document.getElementById('admin-tools').style.display = 'block';
+                }
+            } else {
+                // 如果 Token 无效（如过期），清理并跳转
+                localStorage.removeItem('jwt_token');
+                token = null;
+                alert('登录已过期，请重新登录');
+                window.location.href = 'index.html';
+            }
+        } catch(e) {
+            console.error('身份校验失败', e);
+        }
+    }
+
+    async function request(url, method = 'GET', body = null) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+
+        try {
+            const options = { method, headers };
+            if (body) options.body = JSON.stringify(body);
+            const response = await fetch(API_BASE + url, options);
+            const data = await response.json();
+            log(data);
+            return data;
+        } catch (err) {
+            return null;
+        }
+    }
+
+    async function loadCategories() {
+        const res = await request('/categories/tree');
+        if (res && res.code === 200) {
+            renderCategories(res.data);
+            populateParentSelect(res.data);
+        }
+    }
+
+    function populateParentSelect(list) {
+        const select = document.getElementById('cat-parent-id');
+        // 保留第一个默认选项
+        select.innerHTML = '<option value="0">无（顶级分类）</option>';
+        list.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat.id;
+            opt.innerText = cat.name;
+            select.appendChild(opt);
+        });
+    }
+
+    async function loadHotCategories() {
+        const res = await request('/categories/hot');
+        if (res && res.code === 200) {
+            const container = document.getElementById('hot-categories');
+            container.innerHTML = res.data.map((cat, index) => `
+                <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                    <span>${index+1}. ${cat.name}</span>
+                    <span class="badge bg-primary rounded-pill">${cat.postCount} 贴</span>
+                </div>
+            `).join('');
+        }
+    }
+
+    function renderCategories(list) {
+        const container = document.getElementById('categories-container');
+        container.innerHTML = list.map(cat => `
+            <div class="col-md-6">
+                <div class="card category-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h5 class="card-title">${cat.name}</h5>
+                            <button class="btn btn-sm btn-outline-info" onclick="subscribe(${cat.id})">
+                                <i class="fa fa-star"></i> 关注
+                            </button>
+                        </div>
+                        <p class="card-text text-muted small">${cat.description || '暂无描述'}</p>
+                        ${userRole === 'ADMIN' ? `
+                            <div class="mt-2 text-end">
+                                <button class="btn btn-link btn-sm text-danger p-0" onclick="deleteCategory(${cat.id})">删除</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function submitCategory() {
+        const body = {
+            name: document.getElementById('cat-name').value,
+            description: document.getElementById('cat-desc').value,
+            sort: parseInt(document.getElementById('cat-sort').value) || 0,
+            parentId: parseInt(document.getElementById('cat-parent-id').value) || 0
+        };
+        const res = await request('/categories', 'POST', body);
+        if (res && res.code === 200) {
+            bootstrap.Modal.getInstance(document.getElementById('createCategoryModal')).hide();
+            // 重置表单
+            document.getElementById('cat-name').value = '';
+            document.getElementById('cat-desc').value = '';
+            document.getElementById('cat-sort').value = '0';
+            document.getElementById('cat-parent-id').value = '0';
+            loadCategories();
+        }
+    }
+
+    async function subscribe(id) {
+        const res = await request(`/categories/${id}/subscribe`, 'POST');
+        if (res && res.code === 200) alert('关注成功');
+    }
+
+    async function deleteCategory(id) {
+        if (!confirm('确定删除该分类？（逻辑删除）')) return;
+        const res = await request(`/categories/${id}`, 'DELETE');
+        if (res && res.code === 200) loadCategories();
+    }
+</script>
+</body>
+</html>

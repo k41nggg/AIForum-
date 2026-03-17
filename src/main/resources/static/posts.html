@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIForum - 帖子管理</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f7f6; padding-top: 20px; }
+        .post-card { transition: transform 0.2s; border: none; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .post-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .stats-item { font-size: 0.9rem; color: #6c757d; margin-right: 15px; }
+        .sidebar { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        #response-log { background: #2d2d2d; color: #adadad; padding: 10px; border-radius: 5px; font-size: 0.8rem; max-height: 200px; overflow-y: auto; }
+        .navbar-brand { font-weight: bold; color: #0d6efd !important; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm mb-4">
+    <div class="container">
+        <a class="navbar-brand" href="#">AIForum 社区</a>
+        <div class="d-flex align-items-center">
+            <span id="user-status" class="me-3 text-muted small">未登录</span>
+            <a href="index.html" class="btn btn-outline-secondary btn-sm">返回账号管理</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row">
+        <!-- 左侧：操作面板 -->
+        <div class="col-md-4">
+            <div class="sidebar mb-4">
+                <h5 class="mb-3">快捷操作</h5>
+                <button class="btn btn-primary w-100 mb-2" data-bs-toggle="modal" data-bs-target="#createPostModal">
+                    <i class="fa fa-edit me-1"></i> 发布新帖子
+                </button>
+                <div id="admin-tools" style="display: none;">
+                    <button class="btn btn-danger w-100 mb-2" onclick="loadAuditPosts()">
+                        <i class="fa fa-shield-halved me-1"></i> 待审核帖子
+                    </button>
+                </div>
+                <button class="btn btn-outline-secondary w-100 mb-3" onclick="loadPosts()">
+                    <i class="fa fa-sync me-1"></i> 刷新列表
+                </button>
+
+                <hr>
+
+                <h6 class="text-muted mb-2 small">搜索与筛选</h6>
+                <div class="input-group mb-2">
+                    <input type="text" id="search-keyword" class="form-control form-control-sm" placeholder="关键词...">
+                    <button class="btn btn-outline-primary btn-sm" onclick="loadPosts()">搜索</button>
+                </div>
+
+                <select id="sort-by" class="form-select form-select-sm mb-3" onchange="loadPosts()">
+                    <option value="createTime">最新发布</option>
+                    <option value="viewCount">最高点击</option>
+                    <option value="likeCount">最多点赞</option>
+                </select>
+
+                <h6 class="text-muted mb-2 small">API 响应日志</h6>
+                <pre id="response-log">等待交互...</pre>
+            </div>
+        </div>
+
+        <!-- 右侧：内容列表 -->
+        <div class="col-md-8">
+            <div id="posts-container">
+                <!-- 帖子将通过 JS 动态加载 -->
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            </div>
+
+            <!-- 分页 -->
+            <nav id="pagination" class="d-flex justify-content-center mt-4"></nav>
+        </div>
+    </div>
+</div>
+
+<!-- 发布帖子模态框 -->
+<div class="modal fade" id="createPostModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新帖子内容</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">标题</label>
+                    <input type="text" id="post-title" class="form-control" placeholder="请输入标题 (最多200字)">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">正文</label>
+                    <textarea id="post-content" class="form-control" rows="6" placeholder="分享你的想法..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitPost()">立即发布</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑帖子模态框 -->
+<div class="modal fade" id="editPostModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">编辑帖子</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-post-id">
+                <div class="mb-3">
+                    <label class="form-label">标题</label>
+                    <input type="text" id="edit-post-title" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">正文</label>
+                    <textarea id="edit-post-content" class="form-control" rows="6"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="updatePost()">保存修改</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 帖子详情与评论模态框 -->
+<div class="modal fade" id="postDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detail-title">帖子详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="detail-content" class="mb-4 p-3 bg-light rounded" style="white-space: pre-wrap;"></div>
+
+                <hr>
+                <h6>评论列表</h6>
+                <div id="comments-list" class="mb-4" style="max-height: 400px; overflow-y: auto;">
+                    <!-- 评论加载区域 -->
+                </div>
+
+                <div class="mt-3">
+                    <textarea id="reply-content" class="form-control" rows="3" placeholder="写下你的评论..."></textarea>
+                    <div class="d-flex justify-content-end mt-2">
+                        <button class="btn btn-primary btn-sm" onclick="submitComment()">发表评论</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script>
+    const API_BASE = '/api';
+    let token = localStorage.getItem('jwt_token');
+    let currentPostId = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        checkUser();
+        loadPosts();
+    });
+
+    function log(data) {
+        const console = document.getElementById('response-log');
+        console.innerText = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    }
+
+    async function checkUser() {
+        if (!token) {
+            document.getElementById('user-status').innerHTML = '<span class="text-danger">未登录，仅限浏览</span>';
+            return;
+        }
+        try {
+            const res = await fetch(API_BASE + '/users/me', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+            if (data.code === 200) {
+                document.getElementById('user-status').innerHTML = `<i class="fa fa-user me-1"></i> ${data.data.nickname || data.data.username}`;
+                // 如果是管理员，显示审核按钮
+                if (data.data.role === 'ADMIN') {
+                    document.getElementById('admin-tools').style.display = 'block';
+                }
+            } else {
+                localStorage.removeItem('jwt_token');
+                token = null;
+            }
+        } catch(e) {}
+    }
+
+    async function request(url, method = 'GET', body = null) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+
+        try {
+            const options = { method, headers };
+            if (body) options.body = JSON.stringify(body);
+            const response = await fetch(API_BASE + url, options);
+            const data = await response.json();
+            log(data);
+            return data;
+        } catch (err) {
+            log({ error: '请求失败', detail: err.message });
+            return null;
+        }
+    }
+
+    async function loadPosts(page = 1) {
+        const keyword = document.getElementById('search-keyword').value;
+        const sortBy = document.getElementById('sort-by').value;
+        const res = await request(`/posts?current=${page}&size=5&keyword=${keyword}&sortBy=${sortBy}`);
+
+        if (res && res.code === 200) {
+            renderPosts(res.data.records);
+            renderPagination(res.data);
+        }
+    }
+
+    function renderPosts(posts) {
+        const container = document.getElementById('posts-container');
+        if (posts.length === 0) {
+            container.innerHTML = '<div class="alert alert-light text-center">暂无相关帖子</div>';
+            return;
+        }
+
+        container.innerHTML = posts.map(post => `
+            <div class="card post-card">
+                <div class="card-body">
+                    <h5 class="card-title">${post.title}</h5>
+                    <p class="card-text text-truncate" style="max-width: 100%;">${post.content}</p>
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div class="stats">
+                            <span class="stats-item"><i class="fa fa-eye"></i> ${post.viewCount}</span>
+                            <span class="stats-item action-btn" onclick="likePost(${post.id})" style="cursor:pointer"><i class="fa fa-thumbs-up"></i> ${post.likeCount}</span>
+                            <span class="stats-item"><i class="fa fa-comment"></i> ${post.commentCount}</span>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="viewDetail(${post.id})">详情</button>
+                            <button class="btn btn-outline-warning" onclick="openEdit(${post.id})">编辑</button>
+                            <button class="btn btn-outline-danger" onclick="deletePost(${post.id})">删除</button>
+                        </div>
+                    </div>
+                    <div class="text-muted small mt-2">发布于: ${new Date(post.createTime).toLocaleString()}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function loadAuditPosts(page = 1) {
+        const res = await request(`/posts/audit/list?current=${page}&size=10`);
+        if (res && res.code === 200) {
+            renderAuditPosts(res.data.records);
+            renderPagination(res.data, 'loadAuditPosts');
+        }
+    }
+
+    function renderAuditPosts(posts) {
+        const container = document.getElementById('posts-container');
+        if (posts.length === 0) {
+            container.innerHTML = '<div class="alert alert-warning text-center">暂无待审核帖子</div>';
+            return;
+        }
+
+        container.innerHTML = '<h4>待审核列表</h4>' + posts.map(post => `
+            <div class="card post-card border-warning">
+                <div class="card-body">
+                    <h5 class="card-title">${post.title}</h5>
+                    <p class="card-text">${post.content}</p>
+                    <div class="d-flex justify-content-end gap-2">
+                        <button class="btn btn-success btn-sm" onclick="auditPost(${post.id}, 2)">通过并发布</button>
+                        <button class="btn btn-danger btn-sm" onclick="auditPost(${post.id}, 3)">拒绝/下架</button>
+                    </div>
+                    <div class="text-muted small mt-2">提交时间: ${new Date(post.createTime).toLocaleString()}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function auditPost(id, status) {
+        const action = status === 2 ? '通过' : '拒绝';
+        if (!confirm(`确定要${action}该帖子吗？`)) return;
+
+        const res = await request(`/posts/${id}/audit?status=${status}`, 'PUT');
+        if (res && res.code === 200) {
+            alert('审核处理成功');
+            loadAuditPosts();
+        }
+    }
+
+    // 修改原有的 renderPagination 支持不同的加载函数
+    function renderPagination(pageData, fnName = 'loadPosts') {
+        const nav = document.getElementById('pagination');
+        let html = '<ul class="pagination pagination-sm">';
+        for (let i = 1; i <= pageData.pages; i++) {
+            html += `<li class="page-item ${i === pageData.current ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="${fnName}(${i})">${i}</a>
+                     </li>`;
+        }
+        html += '</ul>';
+        nav.innerHTML = html;
+    }
+
+    async function submitPost() {
+        const title = document.getElementById('post-title').value;
+        const content = document.getElementById('post-content').value;
+        if (!title || !content) { alert('请填写标题和内容'); return; }
+
+        const res = await request('/posts', 'POST', { title, content, categoryId: 1 });
+        if (res && res.code === 200) {
+            bootstrap.Modal.getInstance(document.getElementById('createPostModal')).hide();
+            document.getElementById('post-title').value = '';
+            document.getElementById('post-content').value = '';
+            loadPosts();
+        } else {
+            alert(res ? res.message : '发布失败');
+        }
+    }
+
+    async function viewDetail(id) {
+        currentPostId = id;
+        const res = await request(`/posts/${id}`);
+        if (res && res.code === 200) {
+            document.getElementById('detail-title').innerText = res.data.title;
+            document.getElementById('detail-content').innerText = res.data.content;
+
+            // 加载评论
+            loadComments(id);
+
+            new bootstrap.Modal('#postDetailModal').show();
+            loadPosts(); // 刷新列表浏览量
+        }
+    }
+
+    async function loadComments(postId) {
+        const res = await request(`/comments/post/${postId}`);
+        const container = document.getElementById('comments-list');
+        if (res && res.code === 200) {
+            if (res.data.length === 0) {
+                container.innerHTML = '<div class="text-muted small py-3">暂无评论</div>';
+                return;
+            }
+            container.innerHTML = res.data.map(comment => `
+                <div class="p-2 border-bottom">
+                    <div class="d-flex justify-content-between">
+                        <span class="fw-bold small text-primary">用户 ID: ${comment.userId}</span>
+                        <span class="text-muted" style="font-size: 0.7rem;">${new Date(comment.createTime).toLocaleString()}</span>
+                    </div>
+                    <div class="my-1 small">${comment.content}</div>
+                    <div class="d-flex gap-2">
+                         <span class="text-muted" style="font-size: 0.7rem; cursor:pointer;" onclick="likeComment(${comment.id})">
+                            <i class="fa fa-thumbs-up"></i> ${comment.likeCount}
+                         </span>
+                         <span class="text-danger" style="font-size: 0.7rem; cursor:pointer;" onclick="deleteComment(${comment.id})">删除</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    async function submitComment() {
+        const content = document.getElementById('reply-content').value;
+        if (!content.trim()) { alert('内容不能为空'); return; }
+
+        const res = await request('/comments', 'POST', {
+            postId: currentPostId,
+            content: content
+        });
+
+        if (res && res.code === 200) {
+            document.getElementById('reply-content').value = '';
+            loadComments(currentPostId);
+        } else {
+            alert(res ? res.message : '发表失败');
+        }
+    }
+
+    async function likeComment(id) {
+        const res = await request(`/comments/${id}/like`, 'POST');
+        if (res && res.code === 200) loadComments(currentPostId);
+    }
+
+    async function deleteComment(id) {
+        if (!confirm('确定删除评论？')) return;
+        const res = await request(`/comments/${id}`, 'DELETE');
+        if (res && res.code === 200) loadComments(currentPostId);
+    }
+
+    async function likePost(id) {
+        const res = await request(`/posts/${id}/like`, 'POST');
+        if (res && res.code === 200) loadPosts();
+    }
+
+    async function deletePost(id) {
+        if (!confirm('确定要删除这篇帖子吗？')) return;
+        const res = await request(`/posts/${id}`, 'DELETE');
+        if (res && res.code === 200) loadPosts();
+    }
+
+    async function openEdit(id) {
+        const res = await request(`/posts/${id}`);
+        if (res && res.code === 200) {
+            document.getElementById('edit-post-id').value = id;
+            document.getElementById('edit-post-title').value = res.data.title;
+            document.getElementById('edit-post-content').value = res.data.content;
+            new bootstrap.Modal('#editPostModal').show();
+        }
+    }
+
+    async function updatePost() {
+        const id = document.getElementById('edit-post-id').value;
+        const title = document.getElementById('edit-post-title').value;
+        const content = document.getElementById('edit-post-content').value;
+
+        const res = await request(`/posts/${id}`, 'PUT', { title, content });
+        if (res && res.code === 200) {
+            bootstrap.Modal.getInstance(document.getElementById('editPostModal')).hide();
+            loadPosts();
+        }
+    }
+</script>
+</body>
+</html>
