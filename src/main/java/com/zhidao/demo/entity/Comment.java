@@ -19,6 +19,10 @@ public class Comment implements Serializable {
     private Integer dislikeCount;
     private Integer status;
 
+    // 冗余字段用于展示，不持久化到数据库
+    @TableField(exist = false)
+    private String userNickname;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
     @TableLogic

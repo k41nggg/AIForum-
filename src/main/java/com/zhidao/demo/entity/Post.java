@@ -22,6 +22,10 @@ public class Post implements Serializable {
     private Integer isTop;
     private Integer isEssence;
 
+    // 冗余字段用于展示，不持久化到数据库
+    @TableField(exist = false)
+    private String userNickname;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
     @TableField(fill = FieldFill.INSERT_UPDATE)

@@ -1,9 +1,11 @@
 package com.zhidao.demo.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.zhidao.demo.common.Result;
 import com.zhidao.demo.entity.Comment;
 import com.zhidao.demo.entity.User;
+import com.zhidao.demo.mapper.CommentMapper;
 import com.zhidao.demo.service.CommentService;
 import com.zhidao.demo.service.PostService;
 import com.zhidao.demo.service.UserService;
@@ -25,6 +27,9 @@ public class CommentController {
 
     @Autowired
     private PostService postService;
+
+    @Autowired
+    private CommentMapper commentMapper;
 
     private Long getCurrentUserId() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -73,14 +78,15 @@ public class CommentController {
         return Result.success(comment);
     }
 
-    // 2. 根据帖子ID查询评论（树形或列表，这里先实现列表，前端处理层级）
+    // 2. 根据帖子ID查询评论
     @GetMapping("/post/{postId}")
     public Result<List<Comment>> getCommentsByPost(@PathVariable Long postId) {
-        LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Comment::getPostId, postId)
-               .eq(Comment::getStatus, 1)
-               .orderByDesc(Comment::getCreateTime);
-        return Result.success(commentService.list(wrapper));
+        QueryWrapper<Comment> wrapper = new QueryWrapper<>();
+        wrapper.eq("forum_comment.post_id", postId)
+               .eq("forum_comment.status", 1)
+               .eq("forum_comment.is_deleted", 0)
+               .orderByDesc("forum_comment.create_time");
+        return Result.success(commentMapper.selectListWithNickname(wrapper));
     }
 
     // 3. 删除评论

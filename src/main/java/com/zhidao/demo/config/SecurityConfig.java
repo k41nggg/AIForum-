@@ -34,6 +34,17 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/", "/index.html", "/posts.html", "/categories.html", "/static/**", "/js/**", "/css/**", "/favicon.ico").permitAll()
                 .requestMatchers("/api/auth/**", "/api/public/**").permitAll()
+
+                // 公开浏览接口（不需要登录）
+                .requestMatchers(
+                        "/api/categories/**",
+                        "/api/posts/**",
+                        "/api/comments/post/**",
+                        "/api/users/{id}",
+                        "/api/categories/hot",
+                        "/api/categories/tree"
+                ).permitAll()
+
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

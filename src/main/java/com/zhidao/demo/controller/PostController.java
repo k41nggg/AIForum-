@@ -1,14 +1,21 @@
 package com.zhidao.demo.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zhidao.demo.common.Result;
 import com.zhidao.demo.entity.Post;
 import com.zhidao.demo.entity.User;
+import com.zhidao.demo.entity.UserAction;
+import com.zhidao.demo.mapper.PostMapper;
 import com.zhidao.demo.service.PostService;
+import com.zhidao.demo.service.UserActionService;
 import com.zhidao.demo.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -22,6 +29,12 @@ public class PostController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private UserActionService userActionService;
+
+    @Autowired
+    private PostMapper postMapper;
 
     private Long getCurrentUserId() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -120,7 +133,7 @@ public class PostController {
 
     // 5. 帖子查询（分页、排序、筛选）
     @GetMapping
-    public Result<Page<Post>> listPosts(
+    public Result<IPage<Post>> listPosts(
             @RequestParam(defaultValue = "1") Integer current,
             @RequestParam(defaultValue = "10") Integer size,
             @RequestParam(required = false) Long categoryId,
@@ -128,33 +141,35 @@ public class PostController {
             @RequestParam(defaultValue = "createTime") String sortBy,
             @RequestParam(defaultValue = "desc") String order) {
 
-        Page<Post> page = new Page<>(current, size);
-        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<>();
+        IPage<Post> page = new Page<>(current, size);
+        QueryWrapper<Post> wrapper = new QueryWrapper<>();
 
-        // 默认只查已发布的帖子 (2: 已发布)
-        wrapper.eq(Post::getStatus, 2);
-        if (categoryId != null) wrapper.eq(Post::getCategoryId, categoryId);
+        // 明确指定表名防止 Ambiguous column 错误
+        wrapper.eq("forum_post.status", 2);
+        wrapper.eq("forum_post.is_deleted", 0);
+
+        if (categoryId != null) wrapper.eq("forum_post.category_id", categoryId);
         if (keyword != null) {
-            wrapper.and(w -> w.like(Post::getTitle, keyword).or().like(Post::getContent, keyword));
+            wrapper.and(w -> w.like("forum_post.title", keyword).or().like("forum_post.content", keyword));
         }
 
         // 排序
         if ("createTime".equals(sortBy)) {
-            if ("asc".equals(order)) wrapper.orderByAsc(Post::getCreateTime);
-            else wrapper.orderByDesc(Post::getCreateTime);
+            if ("asc".equals(order)) wrapper.orderByAsc("forum_post.create_time");
+            else wrapper.orderByDesc("forum_post.create_time");
         } else if ("viewCount".equals(sortBy)) {
-            wrapper.orderByDesc(Post::getViewCount);
+            wrapper.orderByDesc("forum_post.view_count");
         } else if ("likeCount".equals(sortBy)) {
-            wrapper.orderByDesc(Post::getLikeCount);
+            wrapper.orderByDesc("forum_post.like_count");
         }
 
-        return Result.success(postService.page(page, wrapper));
+        return Result.success(postMapper.selectPageWithNickname(page, wrapper));
     }
 
     // 6. 帖子详情与浏览量统计
     @GetMapping("/{id}")
     public Result<Post> getPostDetail(@PathVariable Long id) {
-        Post post = postService.getById(id);
+        Post post = postMapper.selectByIdWithNickname(id);
         if (post == null) return Result.error("帖子不存在");
 
         // 增加浏览量
@@ -164,13 +179,32 @@ public class PostController {
         return Result.success(post);
     }
 
-    // 7. 点赞/收藏 (简化版：直接增加计数)
+    // 7. 点赞（同一用户对同一帖子只能点赞一次）
     @PostMapping("/{id}/like")
+    @Transactional
     public Result<Void> likePost(@PathVariable Long id) {
+        Long userId = getCurrentUserId();
+        if (userId == null) return Result.error("未登录");
+
         Post post = postService.getById(id);
         if (post == null) return Result.error("帖子不存在");
-        post.setLikeCount(post.getLikeCount() + 1);
-        postService.updateById(post);
+
+        UserAction action = new UserAction();
+        action.setUserId(userId);
+        action.setTargetId(id);
+        action.setType(UserAction.TYPE_LIKE_POST);
+
+        try {
+            // 依赖 forum_user_action 的唯一索引 uk_user_target_type 去重
+            userActionService.save(action);
+        } catch (DuplicateKeyException ex) {
+            // 重复点赞：幂等返回，不再增加计数
+            return Result.error("已点赞");
+        }
+
+        // 只有首次点赞才会自增
+        postMapper.incLikeCount(id);
+
         return Result.success(null);
     }
 
@@ -192,7 +226,7 @@ public class PostController {
 
     // 9. 管理员：获取待审核帖子列表
     @GetMapping("/audit/list")
-    public Result<Page<Post>> listAuditPosts(
+    public Result<IPage<Post>> listAuditPosts(
             @RequestParam(defaultValue = "1") Integer current,
             @RequestParam(defaultValue = "10") Integer size) {
         Long userId = getCurrentUserId();
@@ -201,12 +235,13 @@ public class PostController {
             return Result.error("无权访问");
         }
 
-        Page<Post> page = new Page<>(current, size);
-        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Post::getStatus, 1); // 1: 待审核
-        wrapper.orderByDesc(Post::getCreateTime);
+        IPage<Post> page = new Page<>(current, size);
+        QueryWrapper<Post> wrapper = new QueryWrapper<>();
+        wrapper.eq("forum_post.status", 1); // 1: 待审核
+        wrapper.eq("forum_post.is_deleted", 0);
+        wrapper.orderByDesc("forum_post.create_time");
 
-        return Result.success(postService.page(page, wrapper));
+        return Result.success(postMapper.selectPageWithNickname(page, wrapper));
     }
 
     // 10. 管理员：审核帖子
