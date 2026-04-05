@@ -1,7 +1,7 @@
 <template>
   <div class="app-layout">
-    <header class="topbar glass">
-      <div class="topbar-inner container">
+    <aside class="sidebar glass">
+      <div class="sidebar-inner">
         <div class="brand" @click="$router.push('/')">
           <div class="logo">A</div>
           <div>
@@ -34,7 +34,7 @@
           </template>
         </div>
       </div>
-    </header>
+    </aside>
 
     <div class="main-content container">
       <RouterView />
@@ -90,14 +90,20 @@ onMounted(loadMe)
 </script>
 
 <style scoped>
-.topbar { z-index: 20; border-radius: 0; border-left: none; border-right: none; }
-.topbar-inner {
+.sidebar {
+  width: 240px;
+  height: 100vh;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+}
+.sidebar-inner {
+  display: flex;
+  flex-direction: column;
   gap: 16px;
-  justify-content: space-between;
-  padding-top: 14px;
-  padding-bottom: 14px;
+  padding: 22px 16px;
+  flex: 1;
 }
 .brand { display:flex; align-items:center; gap:12px; cursor:pointer; user-select:none; }
 .logo {
@@ -106,16 +112,29 @@ onMounted(loadMe)
   color: white;
   display:flex; align-items:center; justify-content:center;
   font-weight: 900;
+  flex-shrink: 0;
 }
 .brand-name { font-weight: 900; letter-spacing: 0.2px; }
-.nav { display:flex; gap: 8px; align-items:center; flex: 1; justify-content:center; }
-.nav-link { padding: 8px 12px; border-radius: 10px; color: var(--muted); }
+.nav {
+  display:flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  justify-content: flex-start;
+  margin-top: 20px;
+}
+.nav-link { padding: 10px 12px; border-radius: 10px; color: var(--muted); }
 .nav-link.router-link-active {
   color: var(--text);
   background: rgba(37, 99, 235, 0.08);
   border: 1px solid rgba(37, 99, 235, 0.22);
 }
-.auth { display:flex; gap:10px; align-items:center; }
+.auth {
+  display:flex;
+  flex-direction: column;
+  gap:10px;
+  align-items: stretch;
+}
 .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--success); display:inline-block; }
 .user-pill { background: rgba(255,255,255,0.95); }
 .role { opacity: 0.8; font-size: 11px; padding-left: 6px; }
