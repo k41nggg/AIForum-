@@ -81,12 +81,8 @@ public class CommentController {
     // 2. 根据帖子ID查询评论
     @GetMapping("/post/{postId}")
     public Result<List<Comment>> getCommentsByPost(@PathVariable Long postId) {
-        QueryWrapper<Comment> wrapper = new QueryWrapper<>();
-        wrapper.eq("forum_comment.post_id", postId)
-               .eq("forum_comment.status", 1)
-               .eq("forum_comment.is_deleted", 0)
-               .orderByDesc("forum_comment.create_time");
-        return Result.success(commentMapper.selectListWithNickname(wrapper));
+        List<Comment> comments = commentService.getCommentsByPostId(postId);
+        return Result.success(comments);
     }
 
     // 3. 删除评论
@@ -107,13 +103,23 @@ public class CommentController {
         return Result.success(null);
     }
 
-    // 4. 点赞
+    // 4. 点赞评论
     @PostMapping("/{id}/like")
     public Result<Void> likeComment(@PathVariable Long id) {
-        Comment comment = commentService.getById(id);
-        if (comment == null) return Result.error("评论不存在");
-        comment.setLikeCount(comment.getLikeCount() + 1);
-        commentService.updateById(comment);
-        return Result.success(null);
+        Long userId = getCurrentUserId();
+        if (userId == null) return Result.error("未登录");
+
+        boolean success = commentService.likeComment(id, userId);
+        return success ? Result.success(null) : Result.error("操作失败，您可能已经点赞过该评论");
+    }
+
+    // 5. 取消点赞评论
+    @PostMapping("/{id}/unlike")
+    public Result<Void> unlikeComment(@PathVariable Long id) {
+        Long userId = getCurrentUserId();
+        if (userId == null) return Result.error("未登录");
+
+        boolean success = commentService.unlikeComment(id, userId);
+        return success ? Result.success(null) : Result.error("操作失败");
     }
 }

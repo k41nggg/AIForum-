@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @TableName("forum_comment")
@@ -22,6 +23,9 @@ public class Comment implements Serializable {
     // 冗余字段用于展示，不持久化到数据库
     @TableField(exist = false)
     private String userNickname;
+
+    @TableField(exist = false)
+    private List<Comment> children;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;

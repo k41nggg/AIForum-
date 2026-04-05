@@ -65,3 +65,12 @@ export function apiPut<T>(url: string, body?: unknown) {
 export function apiDelete<T>(url: string) {
   return request<T>(url, { method: 'DELETE' })
 }
+
+// Comment API
+export const comment = {
+  getComments: (postId: number) => apiGet<ApiResult<any[]>>(`/comments/post/${postId}`),
+  addComment: (data: { postId: number; content: string; parentId?: number }) =>
+    apiPost<ApiResult<any>>('/comments', data),
+  likeComment: (commentId: number) => apiPost(`/comments/${commentId}/like`),
+  unlikeComment: (commentId: number) => apiPost(`/comments/${commentId}/unlike`)
+}
