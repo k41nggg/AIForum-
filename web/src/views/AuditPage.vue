@@ -30,9 +30,12 @@
             </div>
           </div>
           <div class="actions">
-            <button class="btn btn-primary" @click="audit(p.id, 2)" :disabled="auditingId === p.id">通过</button>
-            <button class="btn" @click="audit(p.id, 3)" :disabled="auditingId === p.id">下架</button>
+            <button class="btn btn-primary" @click="audit(p.id, 'PUBLISHED')" :disabled="auditingId === p.id">通过</button>
+            <button class="btn" @click="audit(p.id, 'DELETED')" :disabled="auditingId === p.id">下架</button>
           </div>
+        </div>
+        <div v-if="p.auditReason" class="audit-reason">
+          <strong>AI 审核意见:</strong> {{ p.auditReason }}
         </div>
         <div class="content">{{ p.content }}</div>
       </div>
@@ -51,7 +54,8 @@ type Post = {
   categoryId: number
   title: string
   content: string
-  status: number
+  status: string
+  auditReason?: string
   createTime: string
 }
 
@@ -80,9 +84,9 @@ async function load() {
   items.value = res.data.records || []
 }
 
-async function audit(id: number, status: 2 | 3) {
+async function audit(id: number, status: 'PUBLISHED' | 'DELETED') {
   auditingId.value = id
-const res = await apiPut<ApiResult<null>>(`/posts/${id}/audit?status=${status}`)
+  const res = await apiPut<ApiResult<null>>(`/posts/${id}/audit?status=${status}`)
   auditingId.value = null
 
   if (!res) {
@@ -94,7 +98,7 @@ const res = await apiPut<ApiResult<null>>(`/posts/${id}/audit?status=${status}`)
     return
   }
 
-  showToast('success', '操作成功', status === 2 ? '已通过审核' : '已下架')
+  showToast('success', '操作成功', status === 'PUBLISHED' ? '已通过审核' : '已下架')
   await load()
 }
 
@@ -115,4 +119,13 @@ onMounted(load)
 .meta { display:flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .actions { display:flex; gap: 10px; flex-wrap: wrap; }
 .content { margin-top: 10px; color: rgba(15,23,42,0.86); white-space: pre-wrap; line-height: 1.6; }
+.audit-reason {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background-color: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  color: #b88100;
+  border-radius: 8px;
+  font-size: 14px;
+}
 </style>

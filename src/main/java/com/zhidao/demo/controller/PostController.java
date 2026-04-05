@@ -71,45 +71,44 @@ public class PostController {
     // 1. 发布帖子
     @PostMapping
     public Result<Post> createPost(@RequestBody Post post) {
-        System.out.println("DEBUG: Entering createPost");
         Long userId = getCurrentUserId();
-        System.out.println("DEBUG: userId = " + userId);
         if (userId == null) return Result.error("未登录");
 
-        if (!auditService.isContentAppropriate(post.getTitle() + " " + post.getContent())) {
-            return Result.error("内容包含不当言论，请修改后发布");
-        }
-
-        if (post.getCategoryId() == null) {
-            Long categoryId = topicClassificationService.classifyPost(post);
-            post.setCategoryId(categoryId);
-        }
-
         post.setUserId(userId);
-        post.setViewCount(0);
-        post.setLikeCount(0);
-        post.setCollectCount(0);
-        post.setCommentCount(0);
-        // 发布的帖子默认为待审核状态 (1: 待审核)
-        post.setStatus(1);
+        post.setStatus("AUDIT_PENDING"); // 初始状态为待审核
         postService.save(post);
+
+        // 异步执行AI审核和分类
+        auditService.auditPost(post);
+        topicClassificationService.classifyPost(post);
+
         return Result.success(post);
     }
 
-    // 2. 编辑帖子
     @PutMapping("/{id}")
-    public Result<Post> updatePost(@PathVariable Long id, @RequestBody Post post) {
-        Post oldPost = postService.getById(id);
-        if (oldPost == null) return Result.error("帖子不存在");
-
+    public Result<Post> updatePost(@PathVariable Long id, @RequestBody Post updatedPost) {
         Long userId = getCurrentUserId();
-        if (!oldPost.getUserId().equals(userId)) {
+        if (userId == null) return Result.error("未登录");
+
+        Post existingPost = postService.getById(id);
+        if (existingPost == null) return Result.error("帖子不存在");
+        if (!existingPost.getUserId().equals(userId)) {
             return Result.error("无权修改他人帖子");
         }
 
-        post.setId(id);
-        postService.updateById(post);
-        return Result.success(post);
+        existingPost.setTitle(updatedPost.getTitle());
+        existingPost.setContent(updatedPost.getContent());
+        existingPost.setCategoryId(updatedPost.getCategoryId());
+        existingPost.setStatus("AUDIT_PENDING"); // 每次编辑后重新进入待审核
+        postService.updateById(existingPost);
+
+        // 异步执行AI审核和分类
+        auditService.auditPost(existingPost);
+        if (updatedPost.getCategoryId() == null) {
+            topicClassificationService.classifyPost(existingPost);
+        }
+
+        return Result.success(existingPost);
     }
 
     // 3. 删除帖子
@@ -132,7 +131,7 @@ public class PostController {
 
     // 4. 下架帖子 (改变状态)
     @PutMapping("/{id}/status")
-    public Result<Void> updateStatus(@PathVariable Long id, @RequestParam Integer status) {
+    public Result<Void> updateStatus(@PathVariable Long id, @RequestParam String status) {
         Post oldPost = postService.getById(id);
         if (oldPost == null) return Result.error("帖子不存在");
 
@@ -163,7 +162,7 @@ public class PostController {
         QueryWrapper<Post> wrapper = new QueryWrapper<>();
 
         // 明确指定表名防止 Ambiguous column 错误
-        wrapper.eq("forum_post.status", 2);
+        wrapper.eq("forum_post.status", "PUBLISHED");
         wrapper.eq("forum_post.is_deleted", 0);
 
         if (categoryId != null) wrapper.eq("forum_post.category_id", categoryId);
@@ -255,7 +254,7 @@ public class PostController {
 
         IPage<Post> page = new Page<>(current, size);
         QueryWrapper<Post> wrapper = new QueryWrapper<>();
-        wrapper.eq("forum_post.status", 1); // 1: 待审核
+        wrapper.eq("forum_post.status", "AUDIT_PENDING"); // "AUDIT_PENDING"
         wrapper.eq("forum_post.is_deleted", 0);
         wrapper.orderByDesc("forum_post.create_time");
 
@@ -264,9 +263,9 @@ public class PostController {
 
     // 10. 管理员：审核帖子
     @PutMapping("/{id}/audit")
-    public Result<Void> auditPost(@PathVariable Long id, @RequestParam Integer status) {
-        // status: 2-已发布, 3-下架违规
-        if (status != 2 && status != 3) {
+    public Result<Void> auditPost(@PathVariable Long id, @RequestParam String status) {
+        // status: "PUBLISHED", "DELETED"
+        if (!"PUBLISHED".equals(status) && !"DELETED".equals(status)) {
             return Result.error("非法状态");
         }
 

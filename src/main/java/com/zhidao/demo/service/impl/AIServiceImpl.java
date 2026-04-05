@@ -38,7 +38,7 @@ public class AIServiceImpl implements AIService {
         ChatRequest chatRequest = new ChatRequest();
         chatRequest.setModel("deepseek-coder");
         chatRequest.setMessages(java.util.Collections.singletonList(
-                new com.zhidao.demo.dto.Message("user", "以下文本是否适合在公共论坛上发布？请用“是”或“否”回答。\n\n" + input)
+                new com.zhidao.demo.dto.Message("user", "判断以下文本是否适合在公共论坛发布。如果适合，请只回答“是”。如果不适合，请回答“否”，并用中文简要说明理由，格式为“否：[原因]”。\n\n" + input)
         ));
         return getCompletion(chatRequest)
                 .map(response -> response.getChoices().get(0).getMessage().getContent());

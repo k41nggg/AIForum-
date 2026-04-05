@@ -23,6 +23,7 @@ html, body {
     radial-gradient(800px circle at 82% 18%, rgba(29, 78, 216, 0.10), transparent 45%),
     radial-gradient(900px circle at 40% 90%, rgba(22, 163, 74, 0.08), transparent 42%),
     var(--bg);
+  background-attachment: fixed;
   color: var(--text);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
     "Apple Color Emoji", "Segoe UI Emoji";

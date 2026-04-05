@@ -17,19 +17,21 @@ public class AuditServiceImpl implements AuditService {
     private PostService postService;
 
     @Override
-    public boolean isContentAppropriate(String content) {
-        String moderationResult = aiService.getModeration(content).block();
-        return moderationResult != null && !moderationResult.toLowerCase().contains("no");
-    }
-
-    @Override
     public void auditPost(Post post) {
-        boolean isAppropriate = isContentAppropriate(post.getTitle() + " " + post.getContent());
-        if (isAppropriate) {
-            post.setStatus(2); // Approved
-        } else {
-            post.setStatus(3); // Rejected
-        }
-        postService.updateById(post);
+        String contentToAudit = post.getTitle() + "\n" + post.getContent();
+        aiService.getModeration(contentToAudit).subscribe(moderationResult -> {
+            if (moderationResult != null && moderationResult.startsWith("是")) {
+                post.setStatus("PUBLISHED");
+                post.setAuditReason(null);
+            } else {
+                post.setStatus("AUDIT_PENDING");
+                if (moderationResult != null && moderationResult.startsWith("否")) {
+                    post.setAuditReason(moderationResult.substring(moderationResult.indexOf("：") + 1).trim());
+                } else {
+                    post.setAuditReason("AI service returned an unexpected response.");
+                }
+            }
+            postService.updateById(post);
+        });
     }
 }
