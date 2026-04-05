@@ -42,7 +42,8 @@ public class SecurityConfig {
                         "/api/comments/post/**",
                         "/api/users/{id}",
                         "/api/categories/hot",
-                        "/api/categories/tree"
+                        "/api/categories/tree",
+                        "/api/ai/**"
                 ).permitAll()
 
                 .anyRequest().authenticated()

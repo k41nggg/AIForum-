@@ -9,7 +9,9 @@ import com.zhidao.demo.entity.Post;
 import com.zhidao.demo.entity.User;
 import com.zhidao.demo.entity.UserAction;
 import com.zhidao.demo.mapper.PostMapper;
+import com.zhidao.demo.service.AuditService;
 import com.zhidao.demo.service.PostService;
+import com.zhidao.demo.service.TopicClassificationService;
 import com.zhidao.demo.service.UserActionService;
 import com.zhidao.demo.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +37,12 @@ public class PostController {
 
     @Autowired
     private PostMapper postMapper;
+
+    @Autowired
+    private AuditService auditService;
+
+    @Autowired
+    private TopicClassificationService topicClassificationService;
 
     private Long getCurrentUserId() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -67,6 +75,16 @@ public class PostController {
         Long userId = getCurrentUserId();
         System.out.println("DEBUG: userId = " + userId);
         if (userId == null) return Result.error("未登录");
+
+        if (!auditService.isContentAppropriate(post.getTitle() + " " + post.getContent())) {
+            return Result.error("内容包含不当言论，请修改后发布");
+        }
+
+        if (post.getCategoryId() == null) {
+            Long categoryId = topicClassificationService.classifyPost(post);
+            post.setCategoryId(categoryId);
+        }
+
         post.setUserId(userId);
         post.setViewCount(0);
         post.setLikeCount(0);

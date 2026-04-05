@@ -37,6 +37,11 @@ async function request<T>(url: string, init?: RequestInit): Promise<T | null> {
     const text = await res.text()
     if (!text) return null
 
+    // 针对 AI 接口可能直接返回文本的情况
+    if (res.headers.get('Content-Type')?.includes('text/plain')) {
+      return text as T
+    }
+
     try {
       return JSON.parse(text) as T
     } catch {

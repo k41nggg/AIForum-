@@ -1,7 +1,6 @@
 package com.zhidao.demo.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.zhidao.demo.common.Result;
 import com.zhidao.demo.entity.Comment;
 import com.zhidao.demo.entity.User;

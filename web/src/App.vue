@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="app-layout">
     <header class="topbar glass">
       <div class="topbar-inner container">
         <div class="brand" @click="$router.push('/')">
@@ -13,6 +13,7 @@
         <nav class="nav">
           <RouterLink class="nav-link" to="/">帖子</RouterLink>
           <RouterLink class="nav-link" to="/categories">分类</RouterLink>
+          <RouterLink class="nav-link" to="/recommendations">推荐</RouterLink>
           <RouterLink class="nav-link" to="/subscriptions">我的订阅</RouterLink>
           <RouterLink class="nav-link" to="/profile">个人中心</RouterLink>
           <RouterLink class="nav-link" to="/audit">审核</RouterLink>
@@ -35,9 +36,9 @@
       </div>
     </header>
 
-    <main class="container">
+    <div class="main-content container">
       <RouterView />
-    </main>
+    </div>
 
     <div v-if="toastState.show" class="toast" role="status" aria-live="polite">
       <div class="toast-title">{{ toastTitle }}</div>
@@ -89,8 +90,15 @@ onMounted(loadMe)
 </script>
 
 <style scoped>
-.topbar { position: sticky; top: 0; z-index: 20; border-radius: 0; border-left: none; border-right: none; }
-.topbar-inner { display:flex; align-items:center; gap:16px; justify-content: space-between; padding-top: 14px; padding-bottom: 14px; }
+.topbar { z-index: 20; border-radius: 0; border-left: none; border-right: none; }
+.topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: space-between;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
 .brand { display:flex; align-items:center; gap:12px; cursor:pointer; user-select:none; }
 .logo {
   width: 40px; height: 40px; border-radius: 12px;
