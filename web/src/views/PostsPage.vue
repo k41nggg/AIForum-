@@ -6,45 +6,12 @@
         <div class="subtle">浏览已发布内容，登录后可发布并点赞</div>
       </div>
       <div class="page-actions">
+        <RouterLink class="btn btn-primary" to="/posts/create">发布帖子</RouterLink>
         <button class="btn" @click="refresh" :disabled="loading">刷新</button>
       </div>
     </div>
 
-    <div class="grid-2">
-      <section class="glass card">
-        <div class="section-head">
-          <h2 class="h2">发布帖子</h2>
-          <span class="pill">发布后进入「待审核」</span>
-        </div>
-
-        <div class="row">
-          <div class="field">
-            <label>分类</label>
-            <select class="select" v-model.number="createForm.categoryId">
-              <option v-for="c in categories" :key="c.id" :value="c.id">
-                {{ c.name }}
-              </option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label>标题</label>
-            <input class="input" v-model.trim="createForm.title" placeholder="写一个清晰的标题" />
-          </div>
-
-          <div class="field">
-            <label>内容</label>
-            <textarea class="textarea" v-model.trim="createForm.content" rows="7" placeholder="分享你的想法..." />
-          </div>
-
-          <button class="btn btn-primary" @click="createPost" :disabled="creating">
-            {{ creating ? '提交中...' : '发布' }}
-          </button>
-
-          <div class="subtle">提示：只有管理员审核通过后，帖子才会出现在右侧列表。</div>
-        </div>
-      </section>
-
+    <div class="grid-1">
       <section class="glass card">
         <div class="section-head">
           <h2 class="h2">发现内容</h2>
@@ -61,7 +28,7 @@
               <option value="viewCount">浏览</option>
               <option value="likeCount">点赞</option>
             </select>
-            <button class="btn" @click="refresh" :disabled="loading">查询</button>
+            <button class="btn btn-primary" @click="refresh" :disabled="loading">查询</button>
           </div>
         </div>
 
@@ -89,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiGet, apiPost, type ApiResult } from '../lib/api'
 import { showToast } from '../lib/toast'
@@ -119,18 +86,11 @@ type Category = {
 }
 
 const loading = ref(false)
-const creating = ref(false)
 const posts = ref<Post[]>([])
 
 const keyword = ref('')
 const sortBy = ref<'createTime' | 'viewCount' | 'likeCount'>('createTime')
 const categories = ref<Category[]>([])
-
-const createForm = reactive({
-  categoryId: null as number | null,
-  title: '',
-  content: ''
-})
 
 const router = useRouter()
 
@@ -171,58 +131,20 @@ function getCategoryName(id: number) {
 }
 
 async function loadCategories() {
-  const res = await apiGet<ApiResult<Category>>('/categories/tree')
+  const res = await apiGet<ApiResult<Category[]>>('/categories/tree')
   if (res?.code === 200) {
     categories.value = res.data || []
-    if (categories.value.length > 0 && !createForm.categoryId) {
-      createForm.categoryId = categories.value[0].id
-    }
   }
 }
 
-async function createPost() {
-  if (!createForm.categoryId || !createForm.title || !createForm.content) {
-    showToast('error', '发布失败', '分类、标题、内容不能为空')
-    return
+async function like(postId: number) {
+  const res = await apiPost<ApiResult<null>>(`/posts/${postId}/like`, {})
+  if (res?.code === 200) {
+    showToast('success', '点赞成功')
+    refresh()
+  } else {
+    showToast('error', '点赞失败', res?.message)
   }
-
-  creating.value = true
-
-  const res = await apiPost<ApiResult<Post>>('/posts', {
-    categoryId: createForm.categoryId,
-    title: createForm.title,
-    content: createForm.content
-  })
-
-  creating.value = false
-
-  if (!res) {
-    showToast('error', '发布失败', '无法连接后端服务')
-    return
-  }
-  if (res.code !== 200) {
-    showToast('error', '发布失败', res.message || '发布失败')
-    return
-  }
-
-  showToast('success', '发布成功', `postId=${res.data.id}，等待管理员审核`)
-  createForm.title = ''
-  createForm.content = ''
-}
-
-async function like(id: number) {
-  const res = await apiPost<ApiResult<null>>(`/posts/${id}/like`)
-  if (!res) {
-    showToast('error', '点赞失败', '无法连接后端服务')
-    return
-  }
-  if (res.code !== 200) {
-    showToast('error', '点赞失败', res.message || '点赞失败')
-    return
-  }
-
-  showToast('success', '点赞成功', '感谢你的支持')
-  await refresh()
 }
 
 function goDetail(id: number) {
@@ -236,21 +158,42 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page { display: grid; gap: 16px; }
-.page-head { display:flex; align-items:flex-end; justify-content:space-between; gap: 12px; }
-.page-actions { display:flex; gap: 10px; }
-.section-head { display:flex; align-items:center; justify-content:space-between; gap: 10px; margin-bottom: 12px; }
-.filters { display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
-.empty { color: var(--muted); padding: 10px 0; }
-
-.post { padding: 14px 0; border-top: 1px solid rgba(15, 23, 42, 0.10); }
-.post:first-of-type { border-top: none; padding-top: 0; }
-.post-title { font-weight: 750; letter-spacing: 0.2px; margin-bottom: 8px; }
-.post-meta { display:flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-.post-content { color: rgba(15, 23, 42, 0.85); white-space: pre-wrap; line-height: 1.55; }
-.post-actions { margin-top: 12px; display:flex; gap: 10px; }
-
-@media (max-width: 980px) {
-  .filters { flex-direction: column; align-items: stretch; }
+.grid-1 {
+  display: grid;
+  gap: 24px;
+}
+.post {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.post:last-child {
+  border-bottom: none;
+}
+.post-title {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+.post-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.post-content {
+  color: var(--text);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.post-actions {
+  display: flex;
+  gap: 8px;
+}
+.filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 </style>

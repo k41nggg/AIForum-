@@ -11,7 +11,7 @@
         </div>
 
         <nav class="nav">
-          <RouterLink class="nav-link" to="/">帖子</RouterLink>
+          <RouterLink class="nav-link" to="/posts">帖子</RouterLink>
           <RouterLink class="nav-link" to="/categories">分类</RouterLink>
           <RouterLink class="nav-link" to="/recommendations">推荐</RouterLink>
           <RouterLink class="nav-link" to="/subscriptions">我的订阅</RouterLink>

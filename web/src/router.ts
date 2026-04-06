@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import PostsPage from './views/PostsPage.vue'
 import PostDetailPage from './views/PostDetailPage.vue'
+import CreatePostPage from './views/CreatePostPage.vue'
 import LoginPage from './views/LoginPage.vue'
 import RegisterPage from './views/RegisterPage.vue'
 import CategoriesPage from './views/CategoriesPage.vue'
@@ -14,7 +15,9 @@ import { showToast } from './lib/toast'
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', component: PostsPage },
+    { path: '/', redirect: '/posts' },
+    { path: '/posts', component: PostsPage },
+    { path: '/posts/create', component: CreatePostPage, meta: { requiresAuth: true } },
     { path: '/posts/:id', component: PostDetailPage },
     { path: '/login', component: LoginPage },
     { path: '/register', component: RegisterPage },
