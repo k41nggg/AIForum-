@@ -44,11 +44,30 @@
         </div>
       </div>
     </section>
+
+    <section class="glass card">
+      <h2 class="h2">我的帖子</h2>
+      <div v-if="postsLoading" class="subtle">加载中...</div>
+      <div v-else-if="myPosts.length === 0" class="empty">你还没有发布过帖子</div>
+      <div v-else>
+        <div class="post" v-for="p in myPosts" :key="p.id">
+          <div class="post-title" @click="goDetail(p.id)">{{ p.title }}</div>
+          <div class="post-meta">
+            <span class="pill" :class="getStatusClass(p.status)">{{ getStatusText(p.status) }}</span>
+            <span class="pill">#{{ p.id }}</span>
+            <span class="pill">浏览 {{ p.viewCount }}</span>
+            <span class="pill">点赞 {{ p.likeCount }}</span>
+            <span class="pill">{{ new Date(p.createTime).toLocaleString() }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { apiGet, apiPut, type ApiResult } from '../lib/api'
 import { showToast } from '../lib/toast'
 
@@ -61,9 +80,25 @@ type User = {
   role?: string
 }
 
+type Post = {
+  id: number
+  title: string
+  status: string
+  viewCount: number
+  likeCount: number
+  createTime: string
+}
+
+type Page<T> = {
+  records: T[]
+}
+
 const loading = ref(false)
 const saving = ref(false)
 const me = ref<User | null>(null)
+const postsLoading = ref(false)
+const myPosts = ref<Post[]>([])
+const router = useRouter()
 
 const form = reactive({
   nickname: '',
@@ -93,6 +128,15 @@ async function load() {
   form.bio = res.data.bio || ''
 }
 
+async function loadMyPosts() {
+  postsLoading.value = true
+  const res = await apiGet<ApiResult<Page<Post>>>('/posts/my')
+  postsLoading.value = false
+  if (res?.code === 200) {
+    myPosts.value = res.data.records || []
+  }
+}
+
 async function save() {
   saving.value = true
   const res = await apiPut<ApiResult<string>>('/users/profile', {
@@ -115,7 +159,32 @@ async function save() {
   await load()
 }
 
-onMounted(load)
+function goDetail(id: number) {
+  router.push(`/posts/${id}`)
+}
+
+function getStatusText(status: string) {
+  switch (status) {
+    case 'AUDIT_PENDING': return '待审核'
+    case 'PUBLISHED': return '已发布'
+    case 'DELETED': return '已删除'
+    default: return status
+  }
+}
+
+function getStatusClass(status: string) {
+  switch (status) {
+    case 'AUDIT_PENDING': return 'status-pending'
+    case 'PUBLISHED': return 'status-published'
+    case 'DELETED': return 'status-deleted'
+    default: return ''
+  }
+}
+
+onMounted(() => {
+  load()
+  loadMyPosts()
+})
 </script>
 
 <style scoped>
@@ -143,6 +212,18 @@ onMounted(load)
   background: linear-gradient(135deg, rgba(37,99,235,0.14), rgba(29,78,216,0.10));
   color: rgba(15,23,42,0.8);
 }
+
+.form { flex: 1; }
+.row { display: flex; flex-direction: column; gap: 16px; }
+
+.post { padding: 14px 0; border-top: 1px solid var(--border); }
+.post:first-of-type { border-top: none; padding-top: 0; }
+.post-title { font-weight: 750; letter-spacing: 0.2px; margin-bottom: 8px; cursor: pointer; }
+.post-title:hover { color: var(--primary); }
+.post-meta { display:flex; gap: 8px; flex-wrap: wrap; }
+.status-pending { background-color: #f59e0b; color: white; }
+.status-published { background-color: #10b981; color: white; }
+.status-deleted { background-color: #ef4444; color: white; }
 
 @media (max-width: 980px) {
   .grid { grid-template-columns: 1fr; }

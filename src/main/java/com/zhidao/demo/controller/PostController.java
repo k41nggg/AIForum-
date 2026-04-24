@@ -183,6 +183,24 @@ public class PostController {
         return Result.success(postMapper.selectPageWithNickname(page, wrapper));
     }
 
+    @GetMapping("/my")
+    public Result<IPage<Post>> listMyPosts(
+            @RequestParam(defaultValue = "1") Integer current,
+            @RequestParam(defaultValue = "10") Integer size) {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return Result.error("未登录");
+        }
+
+        IPage<Post> page = new Page<>(current, size);
+        QueryWrapper<Post> wrapper = new QueryWrapper<>();
+        wrapper.eq("forum_post.user_id", userId);
+        wrapper.eq("forum_post.is_deleted", 0);
+        wrapper.orderByDesc("forum_post.create_time");
+
+        return Result.success(postMapper.selectPageWithNickname(page, wrapper));
+    }
+
     // 6. 帖子详情与浏览量统计
     @GetMapping("/{id}")
     public Result<Post> getPostDetail(@PathVariable Long id) {
