@@ -24,6 +24,9 @@
         <div class="post-content">{{ post.content }}</div>
         <div class="post-actions">
           <button class="btn" @click="likePost" :disabled="liking">{{ liking ? '处理中...' : '点赞' }}</button>
+          <button class="btn" v-if="canDeletePost()" @click="deletePost" :disabled="deletingPost">
+            {{ deletingPost ? '删除中...' : '删除帖子' }}
+          </button>
         </div>
       </section>
 
@@ -112,7 +115,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { apiDelete, apiGet, apiPost, getToken, type ApiResult, comment as commentApi } from '../lib/api'
 import { showToast } from '../lib/toast'
 import CommentNode from '../components/CommentNode.vue'
@@ -141,7 +144,14 @@ type Comment = {
   children?: Comment[]
 }
 
+type Me = {
+  id: number
+  username: string
+  role?: string
+}
+
 const route = useRoute()
+const router = useRouter()
 const postId = computed(() => Number(route.params.id))
 
 const loading = ref(false)
@@ -161,6 +171,9 @@ const summarizing = ref(false)
 const asking = ref(false)
 const question = ref('')
 const aiResults = ref<{ type: 'summary' | 'qa'; content: any }[]>([])
+
+const me = ref<Me | null>(null)
+const deletingPost = ref(false)
 
 async function loadPost() {
   loading.value = true
@@ -193,6 +206,12 @@ async function loadComments() {
     return
   }
   comments.value = res.data || []
+}
+
+async function loadMe() {
+  const res = await apiGet<ApiResult<Me>>('/users/me')
+  if (res?.code === 200) me.value = res.data
+  else me.value = null
 }
 
 async function reload() {
@@ -355,13 +374,41 @@ async function askQuestion() {
   }
 }
 
+function canDeletePost() {
+  if (!post.value || !me.value) return false
+  if (me.value.role === 'ADMIN') return true
+  return me.value.id === post.value.userId
+}
+
+async function deletePost() {
+  if (!post.value) return
+  deletingPost.value = true
+  const res = await apiDelete<ApiResult<null>>(`/posts/${post.value.id}`)
+  deletingPost.value = false
+
+  if (!res) {
+    showToast('error', '删除失败', '无法连接后端服务')
+    return
+  }
+  if (res.code !== 200) {
+    showToast('error', '删除失败', res.message || '删除失败')
+    return
+  }
+
+  showToast('success', '删除成功')
+  router.push('/posts')
+}
+
 // 权限判断 (示例)
 function canDelete(c: Comment) {
   // 实际项目中应从 token 解析出当前用户 ID 和角色
   return false
 }
 
-onMounted(reload)
+onMounted(async () => {
+  await loadMe()
+  await reload()
+})
 </script>
 
 <style scoped>

@@ -48,6 +48,14 @@
           <div class="post-actions">
             <button class="btn" @click="goDetail(p.id)">查看详情</button>
             <button class="btn" @click="like(p.id)">点赞</button>
+            <button
+              v-if="canDelete(p)"
+              class="btn btn-danger"
+              @click="removePost(p.id)"
+              :disabled="deletingId === p.id"
+            >
+              {{ deletingId === p.id ? '删除中...' : '删除' }}
+            </button>
           </div>
         </div>
       </section>
@@ -58,7 +66,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiGet, apiPost, type ApiResult } from '../lib/api'
+import { apiDelete, apiGet, apiPost, type ApiResult } from '../lib/api'
 import { showToast } from '../lib/toast'
 
 type Post = {
@@ -85,8 +93,16 @@ type Category = {
   name: string
 }
 
+type Me = {
+  id: number
+  username: string
+  role?: string
+}
+
 const loading = ref(false)
 const posts = ref<Post[]>([])
+const me = ref<Me | null>(null)
+const deletingId = ref<number | null>(null)
 
 const keyword = ref('')
 const sortBy = ref<'createTime' | 'viewCount' | 'likeCount'>('createTime')
@@ -151,9 +167,40 @@ function goDetail(id: number) {
   router.push(`/posts/${id}`)
 }
 
+async function loadMe() {
+  const res = await apiGet<ApiResult<Me>>('/users/me')
+  if (res?.code === 200) me.value = res.data
+  else me.value = null
+}
+
+function canDelete(p: Post) {
+  if (!me.value) return false
+  if (me.value.role === 'ADMIN') return true
+  return me.value.id === p.userId
+}
+
+async function removePost(id: number) {
+  deletingId.value = id
+  const res = await apiDelete<ApiResult<null>>(`/posts/${id}`)
+  deletingId.value = null
+
+  if (!res) {
+    showToast('error', '删除失败', '无法连接后端服务')
+    return
+  }
+  if (res.code !== 200) {
+    showToast('error', '删除失败', res.message || '删除失败')
+    return
+  }
+
+  showToast('success', '删除成功')
+  await refresh()
+}
+
 onMounted(() => {
   refresh()
   loadCategories()
+  loadMe()
 })
 </script>
 
@@ -195,5 +242,13 @@ onMounted(() => {
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
+}
+.btn-danger {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+  color: rgba(185, 28, 28, 0.95);
+}
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.12);
 }
 </style>

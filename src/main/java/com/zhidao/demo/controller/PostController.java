@@ -300,4 +300,27 @@ public class PostController {
         postService.updateById(post);
         return Result.success(null);
     }
+
+    /**
+     * 管理员：获取未通过（已下架/拒绝）的帖子列表。
+     * 这里用 status=DELETED 来表示未通过（被管理员下架或拒绝）。
+     */
+    @GetMapping("/audit/rejected")
+    public Result<IPage<Post>> listRejectedPosts(
+            @RequestParam(defaultValue = "1") Integer current,
+            @RequestParam(defaultValue = "10") Integer size) {
+        Long userId = getCurrentUserId();
+        User currentUser = userService.getById(userId);
+        if (currentUser == null || !"ADMIN".equals(currentUser.getRole())) {
+            return Result.error("无权访问");
+        }
+
+        IPage<Post> page = new Page<>(current, size);
+        QueryWrapper<Post> wrapper = new QueryWrapper<>();
+        wrapper.eq("forum_post.status", "DELETED");
+        wrapper.eq("forum_post.is_deleted", 0);
+        wrapper.orderByDesc("forum_post.update_time");
+
+        return Result.success(postMapper.selectPageWithNickname(page, wrapper));
+    }
 }
