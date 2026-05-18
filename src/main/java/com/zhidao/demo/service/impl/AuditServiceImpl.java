@@ -1,5 +1,6 @@
 package com.zhidao.demo.service.impl;
 
+import com.zhidao.demo.dto.AuditAiResult;
 import com.zhidao.demo.entity.Post;
 import com.zhidao.demo.service.AIService;
 import com.zhidao.demo.service.AuditService;
@@ -18,19 +19,25 @@ public class AuditServiceImpl implements AuditService {
 
     @Override
     public void auditPost(Post post) {
-        String contentToAudit = post.getTitle() + "\n" + post.getContent();
-        aiService.getModeration(contentToAudit).subscribe(moderationResult -> {
-            if (moderationResult != null && moderationResult.startsWith("是")) {
+        String title = post.getTitle() == null ? "" : post.getTitle();
+        String content = post.getContent() == null ? "" : post.getContent();
+
+        aiService.auditAndSummarize(title, content).subscribe((AuditAiResult r) -> {
+            if (r != null && r.isApproved()) {
                 post.setStatus("PUBLISHED");
                 post.setAuditReason(null);
             } else {
                 post.setStatus("AUDIT_PENDING");
-                if (moderationResult != null && moderationResult.startsWith("否")) {
-                    post.setAuditReason(moderationResult.substring(moderationResult.indexOf("：") + 1).trim());
-                } else {
-                    post.setAuditReason("AI service returned an unexpected response.");
-                }
+                String reason = r == null ? null : r.getReason();
+                post.setAuditReason(reason == null || reason.isBlank() ? "AI 审核未通过" : reason.trim());
             }
+
+            // 无论通过与否，都尽量写入 summary（便于前端展示，也避免后续重复调用）
+            if (r != null && r.getSummary() != null && !r.getSummary().isBlank()) {
+                post.setAiSummary(r.getSummary().trim());
+                post.setAiSummaryUpdateTime(java.time.LocalDateTime.now());
+            }
+
             postService.updateById(post);
         });
     }

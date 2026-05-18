@@ -20,6 +20,10 @@ public class Post implements Serializable {
     private Integer commentCount;
     private String status; // PUBLISHED, AUDIT_PENDING, DELETED
     private String auditReason;
+
+    private String aiSummary;
+    private LocalDateTime aiSummaryUpdateTime;
+
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

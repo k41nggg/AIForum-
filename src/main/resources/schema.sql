@@ -43,6 +43,8 @@ CREATE TABLE `forum_post` (
     `comment_count` INT DEFAULT 0 COMMENT '该帖子下的评论总数',
     `status` VARCHAR(20) DEFAULT 'AUDIT_PENDING' COMMENT '内容状态：PUBLISHED, AUDIT_PENDING, DELETED',
     `audit_reason` VARCHAR(255) DEFAULT NULL COMMENT 'AI审核不通过原因',
+    `ai_summary` TEXT DEFAULT NULL COMMENT '帖子 AI 总结缓存（中文）',
+    `ai_summary_update_time` DATETIME DEFAULT NULL COMMENT 'AI 总结更新时间',
     `is_top` TINYINT DEFAULT 0 COMMENT '是否置顶展示：0-否, 1-是',
     `is_essence` TINYINT DEFAULT 0 COMMENT '是否设为精华帖：0-否, 1-是',
     `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '帖子发布/创建时间',

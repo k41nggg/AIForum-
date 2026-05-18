@@ -2,6 +2,7 @@ package com.zhidao.demo.controller;
 
 import com.zhidao.demo.dto.ChatRequest;
 import com.zhidao.demo.dto.Message;
+import com.zhidao.demo.dto.PostQaRequest;
 import com.zhidao.demo.entity.Post;
 import com.zhidao.demo.service.AIService;
 import com.zhidao.demo.service.PostService;
@@ -31,28 +32,36 @@ public class AIController {
         if (post == null) {
             return Mono.just("Post not found");
         }
-        ChatRequest chatRequest = new ChatRequest();
-        chatRequest.setModel("deepseek-coder");
-        chatRequest.setMessages(Arrays.asList(
-                new Message("system", "你是一个能干的助手，擅长总结论坛帖子。请使用中文回答。"),
-                new Message("user", "请用一句话总结以下帖子内容：\n\n" + post.getContent())
-        ));
-        return aiService.getCompletion(chatRequest)
-                .map(response -> response.getChoices().get(0).getMessage().getContent());
+
+        // 按要求：总结只返回审核阶段生成并落库的 summary，不再调用 AI
+        String summary = post.getAiSummary();
+        if (summary == null || summary.trim().isEmpty()) {
+            return Mono.just("（该帖子尚未生成 AI 总结，请等待审核完成后再试）");
+        }
+        return Mono.just(summary);
     }
 
     @PostMapping("/qa/{postId}")
-    public Mono<String> getAnswer(@PathVariable Long postId, @RequestBody String question) {
+    public Mono<String> getAnswer(@PathVariable Long postId, @RequestBody PostQaRequest body) {
+        // 仍然校验帖子存在（避免对不存在帖子无限提问）
         Post post = postService.getById(postId);
         if (post == null) {
             return Mono.just("Post not found");
         }
+
+        String question = body == null ? null : body.getQuestion();
+        if (question == null || question.trim().isEmpty()) {
+            return Mono.just("问题不能为空");
+        }
+
+        // 按要求：问答不附带正文和总结，只发送问题
         ChatRequest chatRequest = new ChatRequest();
         chatRequest.setModel("deepseek-coder");
         chatRequest.setMessages(Arrays.asList(
-                new Message("system", "你是一个能干的助手，可以根据提供的论坛帖子内容回答问题。请使用中文回答。"),
-                new Message("user", "请根据以下帖子内容：\n\n" + post.getContent() + "\n\n回答以下问题：\n\n" + question)
+                new Message("system", "你是一个能干的助手，请用中文回答用户问题。回答要简洁、有条理。"),
+                new Message("user", question.trim())
         ));
+
         return aiService.getCompletion(chatRequest)
                 .map(response -> response.getChoices().get(0).getMessage().getContent());
     }

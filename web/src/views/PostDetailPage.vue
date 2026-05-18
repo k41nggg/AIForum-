@@ -80,11 +80,11 @@
           <h2 class="h2">AI 问答</h2>
         </div>
         <div class="field">
-          <label>基于帖子内容提问</label>
+          <label>提问（不会附带帖子正文，以节省 token）</label>
           <input class="input" v-model.trim="question" placeholder="输入你的问题..." @keyup.enter="askQuestion" />
         </div>
         <div class="ai-controls">
-          <button class="btn" @click="getSummary" :disabled="summarizing">{{ summarizing ? 'AI总结中...' : 'AI总结' }}</button>
+          <button class="btn" @click="getSummary" :disabled="summarizing">{{ summarizing ? '读取中...' : '查看AI总结' }}</button>
           <button class="btn btn-primary" @click="askQuestion" :disabled="asking">
             {{ asking ? '思考中...' : '提问' }}
           </button>
@@ -321,10 +321,10 @@ async function getSummary() {
     if (res) {
       aiResults.value.push({ type: 'summary', content: res })
     } else {
-      showToast('error', '总结失败', '未能获取到AI总结内容')
+      showToast('error', '获取失败', '未能获取到AI总结（可能还未审核生成）')
     }
   } catch (e: any) {
-    showToast('error', '总结失败', e.message || '请求失败')
+    showToast('error', '获取失败', e.message || '请求失败')
   } finally {
     summarizing.value = false
   }
@@ -341,6 +341,7 @@ async function askQuestion() {
   const currentQuestion = question.value
   question.value = ''
   try {
+    // 后端接收 PostQaRequest：{ question: string }
     const res = await apiPost<string>(`/ai/qa/${post.value.id}`, { question: currentQuestion })
     if (res) {
       aiResults.value.push({ type: 'qa', content: { question: currentQuestion, answer: res } })
