@@ -28,7 +28,7 @@ public class TopicClassificationServiceImpl implements TopicClassificationServic
         String categoryNames = categories.stream().map(Category::getName).collect(Collectors.joining(", "));
 
         ChatRequest chatRequest = new ChatRequest();
-        chatRequest.setModel("deepseek-coder");
+        chatRequest.setModel(null);
         chatRequest.setMessages(java.util.Arrays.asList(
                 new Message("system", "You are a helpful assistant that classifies forum posts into categories."),
                 new Message("user", "Based on the following post title and content, which of the following categories does it belong to? Please only return the category name.\n\nCategories: " + categoryNames + "\n\nTitle: " + post.getTitle() + "\n\nContent: " + post.getContent())

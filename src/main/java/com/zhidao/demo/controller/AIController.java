@@ -56,7 +56,7 @@ public class AIController {
 
         // 按要求：问答不附带正文和总结，只发送问题
         ChatRequest chatRequest = new ChatRequest();
-        chatRequest.setModel("deepseek-coder");
+        chatRequest.setModel(null);
         chatRequest.setMessages(Arrays.asList(
                 new Message("system", "你是一个能干的助手，请用中文回答用户问题。回答要简洁、有条理。"),
                 new Message("user", question.trim())
