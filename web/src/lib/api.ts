@@ -76,6 +76,6 @@ export const comment = {
   getComments: (postId: number) => apiGet<ApiResult<any[]>>(`/comments/post/${postId}`),
   addComment: (data: { postId: number; content: string; parentId?: number }) =>
     apiPost<ApiResult<any>>('/comments', data),
-  likeComment: (commentId: number) => apiPost(`/comments/${commentId}/like`),
-  unlikeComment: (commentId: number) => apiPost(`/comments/${commentId}/unlike`)
+  likeComment: (commentId: number) => apiPost<ApiResult<null>>(`/comments/${commentId}/like`),
+  unlikeComment: (commentId: number) => apiPost<ApiResult<null>>(`/comments/${commentId}/unlike`)
 }

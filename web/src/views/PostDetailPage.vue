@@ -8,7 +8,7 @@
         </div>
         <div class="page-actions">
           <button class="btn" @click="reload" :disabled="loading">刷新</button>
-          <RouterLink class="btn" to="/">返回列表</RouterLink>
+          <RouterLink class="btn" to="/posts">返回列表</RouterLink>
         </div>
       </div>
 
@@ -225,7 +225,7 @@ async function likePost() {
     return
   }
   liking.value = true
-const res = await apiPost<ApiResult<null>>(`/posts/${postId.value}/like`)
+  const res = await apiPost<ApiResult<null>>(`/posts/${postId.value}/like`)
   liking.value = false
 
   if (!res) {
@@ -254,7 +254,7 @@ async function likeComment(commentId: number) {
     showToast('error', '点赞失败', res.message || '点赞失败')
     return
   }
-  showToast('success', '点赞成功')
+  showToast('success', '点赞成功', '已记录你的点赞')
   await loadComments()
 }
 
@@ -283,7 +283,7 @@ async function submitComment() {
     showToast('error', '发布失败', res.message || '发布失败')
     return
   }
-  showToast('success', '发布成功')
+  showToast('success', '发布成功', '评论已发布')
   newComment.value = ''
   await loadComments()
 }
@@ -327,7 +327,7 @@ async function submitReply() {
     showToast('error', '回复失败', res.message || '回复失败')
     return
   }
-  showToast('success', '回复成功')
+  showToast('success', '回复成功', '回复已发布')
   cancelReply()
   await loadComments()
 }
@@ -351,7 +351,7 @@ async function getSummary() {
 
 async function askQuestion() {
   if (!question.value) {
-    showToast('error', '问题不能为空')
+    showToast('error', '问题不能为空', '请输入你的问题')
     return
   }
   if (!post.value) return
@@ -395,7 +395,7 @@ async function deletePost() {
     return
   }
 
-  showToast('success', '删除成功')
+  showToast('success', '删除成功', '帖子已删除')
   router.push('/posts')
 }
 

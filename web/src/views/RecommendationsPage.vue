@@ -61,10 +61,16 @@ async function refresh() {
   loading.value = true
   try {
     const res = await apiGet<ApiResult<Post[]>>('/recommendations')
+    if (!res) {
+      showToast('error', '加载失败', '无法连接后端服务')
+      posts.value = []
+      return
+    }
+
     if (res.code === 200) {
       posts.value = res.data || []
     } else {
-      showToast('error', '加载失败', res.message)
+      showToast('error', '加载失败', res.message || '加载失败')
     }
   } catch (e: any) {
     showToast('error', '加载失败', e.message || '请求失败')

@@ -11,12 +11,21 @@
         </div>
 
         <nav class="nav">
-          <RouterLink class="nav-link" to="/posts">帖子</RouterLink>
-          <RouterLink class="nav-link" to="/categories">分类</RouterLink>
-          <RouterLink class="nav-link" to="/recommendations">推荐</RouterLink>
-          <RouterLink class="nav-link" to="/subscriptions">我的订阅</RouterLink>
-          <RouterLink class="nav-link" to="/profile">个人中心</RouterLink>
-          <RouterLink class="nav-link" to="/audit">审核</RouterLink>
+          <div class="nav-section">
+            <div class="nav-title">用户</div>
+            <RouterLink class="nav-link" to="/posts">帖子</RouterLink>
+            <RouterLink class="nav-link" to="/categories">分类</RouterLink>
+            <RouterLink v-if="me" class="nav-link" to="/recommendations">推荐</RouterLink>
+            <RouterLink v-if="me" class="nav-link" to="/subscriptions">我的订阅</RouterLink>
+            <RouterLink v-if="me" class="nav-link" to="/profile">个人中心</RouterLink>
+          </div>
+
+          <div v-if="isAdmin" class="nav-section">
+            <div class="nav-title">管理员</div>
+            <RouterLink class="nav-link" to="/audit">内容审核</RouterLink>
+            <!-- 分类页同时对管理员开放删除/新增等，在这里提供更明显入口 -->
+            <RouterLink class="nav-link" to="/categories">分类管理</RouterLink>
+          </div>
         </nav>
 
         <div class="auth">
@@ -63,6 +72,8 @@ type User = {
 const router = useRouter()
 const me = ref<User | null>(null)
 
+const isAdmin = computed(() => (me.value?.role || '').toUpperCase() === 'ADMIN')
+
 async function loadMe() {
   const res = await apiGet<ApiResult<User>>('/users/me')
   if (res?.code === 200) me.value = res.data
@@ -84,7 +95,6 @@ const toastTitle = computed(() => {
 
 onMounted(loadMe)
 
-// 关键修复：确保全局函数 __AUTH_CHANGED__ 存在并被赋值，以便登录页可以调用它
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ;(window as any).__AUTH_CHANGED__ = loadMe
 </script>
@@ -122,6 +132,20 @@ onMounted(loadMe)
   flex: 1;
   justify-content: flex-start;
   margin-top: 20px;
+}
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.nav-title {
+  margin-top: 14px;
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: rgba(15, 23, 42, 0.55);
+  text-transform: uppercase;
 }
 .nav-link { padding: 10px 12px; border-radius: 10px; color: var(--muted); }
 .nav-link.router-link-active {

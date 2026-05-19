@@ -255,7 +255,7 @@ async function removeCategory(categoryId: number) {
     return
   }
 
-  showToast('success', '删除成功')
+  showToast('success', '删除成功', '分类已删除')
   await load()
 }
 

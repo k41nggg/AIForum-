@@ -11,6 +11,14 @@ public class Post implements Serializable {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long userId;
+
+    /**
+     * 仅用于展示：通过 PostMapper 的关联查询 selectPageWithNickname/selectByIdWithNickname 注入。
+     * 对应 SQL 列名 user_nickname。
+     */
+    @TableField(exist = false)
+    private String userNickname;
+
     private Long categoryId;
     private String title;
     private String content;

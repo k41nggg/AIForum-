@@ -179,7 +179,7 @@ async function removeMyPost(id: number) {
     return
   }
 
-  showToast('success', '删除成功')
+  showToast('success', '删除成功', '帖子已删除')
   await loadMyPosts()
 }
 

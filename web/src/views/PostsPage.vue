@@ -142,10 +142,10 @@ async function loadCategories() {
 async function like(postId: number) {
   const res = await apiPost<ApiResult<null>>(`/posts/${postId}/like`, {})
   if (res?.code === 200) {
-    showToast('success', '点赞成功')
+    showToast('success', '点赞成功', '已记录你的点赞')
     refresh()
   } else {
-    showToast('error', '点赞失败', res?.message)
+    showToast('error', '点赞失败', res?.message || '点赞失败')
   }
 }
 
