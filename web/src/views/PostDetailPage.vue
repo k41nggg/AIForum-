@@ -78,7 +78,7 @@
     </div>
 
     <aside class="sidebar">
-      <section class="glass card">
+      <section class="glass card ai-card">
         <div class="section-head">
           <h2 class="h2">AI 问答</h2>
         </div>
@@ -96,14 +96,14 @@
           <div v-for="(result, index) in aiResults" :key="index" class="ai-result-item">
             <template v-if="result.type === 'summary'">
               <strong>AI 总结:</strong>
-              <p>{{ result.content }}</p>
+              <p class="ai-text">{{ result.content }}</p>
             </template>
             <template v-else-if="result.type === 'qa'">
               <div class="qa-pair">
                 <strong>提问:</strong>
-                <p>{{ result.content.question }}</p>
+                <p class="ai-text">{{ result.content.question }}</p>
                 <strong>AI 回答:</strong>
-                <p>{{ result.content.answer }}</p>
+                <p class="ai-text">{{ result.content.answer }}</p>
               </div>
             </template>
           </div>
@@ -514,6 +514,13 @@ onMounted(async () => {
   border-radius: 8px;
 }
 
+.ai-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: calc(100vh - 40px);
+}
+
 .ai-controls {
   display: flex;
   gap: 10px;
@@ -524,6 +531,12 @@ onMounted(async () => {
   flex-grow: 1;
 }
 
+.ai-answer {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+}
+
 .ai-result-item {
   margin-bottom: 15px;
 }
@@ -532,15 +545,11 @@ onMounted(async () => {
   margin-bottom: 0;
 }
 
-.ai-answer {
-  margin-top: 20px;
-  padding: 15px;
-  background-color: rgba(0, 0, 0, 0.05);
-  border-radius: 8px;
+.ai-text {
+  margin-top: 8px;
   white-space: pre-wrap;
-  line-height: 1.8;
-  max-height: 800px;
-  overflow-y: auto;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .qa-pair {
