@@ -52,12 +52,17 @@
       <div v-else>
         <div class="post" v-for="p in myPosts" :key="p.id">
           <div class="post-title" @click="goDetail(p.id)">{{ p.title }}</div>
-          <div class="post-meta">
-            <span class="pill" :class="getStatusClass(p.status)">{{ getStatusText(p.status) }}</span>
-            <span class="pill">#{{ p.id }}</span>
-            <span class="pill">浏览 {{ p.viewCount }}</span>
-            <span class="pill">点赞 {{ p.likeCount }}</span>
-            <span class="pill">{{ new Date(p.createTime).toLocaleString() }}</span>
+          <div class="post-meta-row">
+            <div class="post-meta">
+              <span class="pill" :class="getStatusClass(p.status)">{{ getStatusText(p.status) }}</span>
+              <span class="pill">#{{ p.id }}</span>
+              <span class="pill">浏览 {{ p.viewCount }}</span>
+              <span class="pill">点赞 {{ p.likeCount }}</span>
+              <span class="pill">{{ new Date(p.createTime).toLocaleString() }}</span>
+            </div>
+            <button class="btn btn-danger btn-compact" @click="removeMyPost(p.id)" :disabled="deletingId === p.id">
+              {{ deletingId === p.id ? '删除中...' : '删除' }}
+            </button>
           </div>
         </div>
       </div>
@@ -68,7 +73,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiGet, apiPut, type ApiResult } from '../lib/api'
+import { apiDelete, apiGet, apiPut, type ApiResult } from '../lib/api'
 import { showToast } from '../lib/toast'
 
 type User = {
@@ -98,6 +103,7 @@ const saving = ref(false)
 const me = ref<User | null>(null)
 const postsLoading = ref(false)
 const myPosts = ref<Post[]>([])
+const deletingId = ref<number | null>(null)
 const router = useRouter()
 
 const form = reactive({
@@ -157,6 +163,24 @@ async function save() {
 
   showToast('success', '保存成功', '资料已更新')
   await load()
+}
+
+async function removeMyPost(id: number) {
+  deletingId.value = id
+  const res = await apiDelete<ApiResult<null>>(`/posts/${id}`)
+  deletingId.value = null
+
+  if (!res) {
+    showToast('error', '删除失败', '无法连接后端服务')
+    return
+  }
+  if (res.code !== 200) {
+    showToast('error', '删除失败', res.message || '删除失败')
+    return
+  }
+
+  showToast('success', '删除成功')
+  await loadMyPosts()
 }
 
 function goDetail(id: number) {
@@ -221,11 +245,45 @@ onMounted(() => {
 .post-title { font-weight: 750; letter-spacing: 0.2px; margin-bottom: 8px; cursor: pointer; }
 .post-title:hover { color: var(--primary); }
 .post-meta { display:flex; gap: 8px; flex-wrap: wrap; }
+.post-meta-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+.post-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+.btn-danger {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+  color: rgba(185, 28, 28, 0.95);
+}
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
+.btn-compact {
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.2;
+  min-height: 28px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
 .status-pending { background-color: #f59e0b; color: white; }
 .status-published { background-color: #10b981; color: white; }
 .status-deleted { background-color: #ef4444; color: white; }
 
 @media (max-width: 980px) {
   .grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .post-meta-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 </style>

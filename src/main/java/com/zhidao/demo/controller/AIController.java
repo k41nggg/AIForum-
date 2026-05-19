@@ -33,12 +33,28 @@ public class AIController {
             return Mono.just("Post not found");
         }
 
-        // 按要求：总结只返回审核阶段生成并落库的 summary，不再调用 AI
+        // 1) 有缓存：直接返回数据库中的总结
         String summary = post.getAiSummary();
-        if (summary == null || summary.trim().isEmpty()) {
-            return Mono.just("（该帖子尚未生成 AI 总结，请等待审核完成后再试）");
+        if (summary != null && !summary.trim().isEmpty()) {
+            return Mono.just(summary);
         }
-        return Mono.just(summary);
+
+        // 2) 无缓存：调用 AI 生成一次总结（尽量复用 auditAndSummarize，减少新增接口与 token 浪费）
+        String title = post.getTitle() == null ? "" : post.getTitle();
+        String content = post.getContent() == null ? "" : post.getContent();
+
+        return aiService.auditAndSummarize(title, content)
+                .map(r -> r == null ? "" : (r.getSummary() == null ? "" : r.getSummary().trim()))
+                .defaultIfEmpty("")
+                .flatMap(s -> {
+                    if (s.isBlank()) {
+                        return Mono.just("（AI 暂时无法生成总结，请稍后重试）");
+                    }
+                    post.setAiSummary(s);
+                    post.setAiSummaryUpdateTime(java.time.LocalDateTime.now());
+                    postService.updateById(post);
+                    return Mono.just(s);
+                });
     }
 
     @PostMapping("/qa/{postId}")
@@ -54,12 +70,21 @@ public class AIController {
             return Mono.just("问题不能为空");
         }
 
-        // 按要求：问答不附带正文和总结，只发送问题
+        String title = post.getTitle() == null ? "" : post.getTitle();
+        String content = post.getContent() == null ? "" : post.getContent();
+
+        // 按需求：问答附带帖子正文作为上下文
+        String prompt = "你正在阅读一篇论坛帖子，请基于帖子内容回答用户问题。\n" +
+                "要求：用中文回答，简洁、有条理；如果帖子内容不足以回答，请说明信息不足。\n\n" +
+                "【帖子标题】\n" + title + "\n\n" +
+                "【帖子正文】\n" + content + "\n\n" +
+                "【用户问题】\n" + question.trim();
+
         ChatRequest chatRequest = new ChatRequest();
         chatRequest.setModel(null);
         chatRequest.setMessages(Arrays.asList(
-                new Message("system", "你是一个能干的助手，请用中文回答用户问题。回答要简洁、有条理。"),
-                new Message("user", question.trim())
+                new Message("system", "你是一个能干的论坛助手，请只用中文回答。回答要简洁、有条理。"),
+                new Message("user", prompt)
         ));
 
         return aiService.getCompletion(chatRequest)

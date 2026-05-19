@@ -83,7 +83,7 @@
           <h2 class="h2">AI 问答</h2>
         </div>
         <div class="field">
-          <label>提问（不会附带帖子正文，以节省 token）</label>
+          <label>提问（会附带帖子正文作为上下文）</label>
           <input class="input" v-model.trim="question" placeholder="输入你的问题..." @keyup.enter="askQuestion" />
         </div>
         <div class="ai-controls">

@@ -100,7 +100,7 @@ public class AIServiceImpl implements AIService {
                                 "1) 审核文本是否适合在公共论坛发布（垃圾广告、敏感内容、违规言论都算不适合）。\n" +
                                 "2) 生成一句话中文总结（尽量不超过60字）。\n\n" +
                                 "输出 JSON 格式如下：\n" +
-                                "{\"approved\": true/false, \"reason\": \"不通过原因（通过则留空）\", \"summary\": \"一句话中文总结\"}\n\n" +
+                                "{\"approved\": true/false, \"reason\": \"不通过原因（通过则留空）\", \"summary\": \"详细总结这个帖子内容\"}\n\n" +
                                 "标题：" + title + "\n\n正文：\n" + content)
         ));
 
