@@ -83,6 +83,14 @@ public class CategoryController {
         if (user == null || !"ADMIN".equals(user.getRole())) {
             return Result.error("无权操作");
         }
+
+        // 禁止删除有子分类的分类
+        Long childrenCount = categoryService.count(new LambdaQueryWrapper<Category>()
+                .eq(Category::getParentId, id));
+        if (childrenCount > 0) {
+            return Result.error("该分类下存在子分类，无法删除，请先删除子分类");
+        }
+
         categoryService.removeById(id);
         return Result.success(null);
     }

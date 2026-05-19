@@ -5,10 +5,7 @@
         <h1 class="h1">帖子</h1>
         <div class="subtle">浏览已发布内容，登录后可发布并点赞</div>
       </div>
-      <div class="page-actions">
-        <RouterLink class="btn btn-primary" to="/posts/create">发布帖子</RouterLink>
-        <button class="btn" @click="refresh" :disabled="loading">刷新</button>
-      </div>
+      <!-- 顶部页眉不再放按钮，按钮移动到查询区域右侧 -->
     </div>
 
     <div class="grid-1">
@@ -29,6 +26,11 @@
               <option value="likeCount">点赞</option>
             </select>
             <button class="btn btn-primary" @click="refresh" :disabled="loading">查询</button>
+
+            <div class="filters-actions">
+              <RouterLink class="btn btn-primary" to="/posts/create">发布帖子</RouterLink>
+              <button class="btn" @click="refresh" :disabled="loading">刷新</button>
+            </div>
           </div>
         </div>
 
@@ -195,5 +197,28 @@ onMounted(() => {
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
+}
+.filters-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-left: auto;
+}
+.page-head {
+  margin-bottom: 14px;
+}
+
+@media (max-width: 980px) {
+  .filters-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .filters-actions .btn {
+    flex: 1;
+  }
 }
 </style>

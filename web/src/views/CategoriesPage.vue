@@ -65,6 +65,7 @@
               </div>
               <div class="cat-actions">
                 <button class="btn" @click="subscribe(c.id)">订阅</button>
+                <button v-if="isAdmin" class="btn btn-danger" @click="removeCategory(c.id)">删除分类</button>
               </div>
             </div>
 
@@ -82,7 +83,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { apiGet, apiPost, type ApiResult } from '../lib/api'
+import { apiDelete, apiGet, apiPost, type ApiResult } from '../lib/api'
 import { showToast } from '../lib/toast'
 
 type Category = {
@@ -142,6 +143,22 @@ const treeList = computed<TreeItem[]>(() => {
 
   return result
 })
+
+type Me = {
+  id: number
+  username: string
+  role?: string
+}
+
+const me = ref<Me | null>(null)
+
+const isAdmin = computed(() => me.value?.role === 'ADMIN')
+
+async function loadMe() {
+  const res = await apiGet<ApiResult<Me>>('/users/me')
+  if (res?.code === 200) me.value = res.data
+  else me.value = null
+}
 
 async function load() {
   loading.value = true
@@ -221,7 +238,31 @@ async function subscribe(categoryId: number) {
   showToast('success', '订阅成功', '已加入你的关注列表')
 }
 
-onMounted(load)
+async function removeCategory(categoryId: number) {
+  if (!isAdmin.value) {
+    showToast('error', '无权操作', '只有管理员可以删除分类')
+    return
+  }
+  if (!confirm(`确定删除分类 #${categoryId} 吗？`)) return
+
+  const res = await apiDelete<ApiResult<null>>(`/categories/${categoryId}`)
+  if (!res) {
+    showToast('error', '删除失败', '无法连接后端服务')
+    return
+  }
+  if (res.code !== 200) {
+    showToast('error', '删除失败', res.message || '删除失败')
+    return
+  }
+
+  showToast('success', '删除成功')
+  await load()
+}
+
+onMounted(async () => {
+  await loadMe()
+  await load()
+})
 </script>
 
 <style scoped>
@@ -247,4 +288,15 @@ onMounted(load)
 .name { font-weight: 750; letter-spacing: 0.2px; }
 .cat-meta { display:flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
 .cat-actions { display:flex; gap: 10px; }
+
+.btn-danger {
+  border: none;
+  color: white;
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.95), rgba(185, 28, 28, 0.95));
+  box-shadow: 0 14px 28px rgba(220, 38, 38, 0.18);
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.88), rgba(185, 28, 28, 0.88));
+}
 </style>
