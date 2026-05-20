@@ -6,11 +6,14 @@ import com.zhidao.demo.entity.User;
 import com.zhidao.demo.entity.UserAction;
 import com.zhidao.demo.mapper.PostMapper;
 import com.zhidao.demo.mapper.UserActionMapper;
+import com.zhidao.demo.mapper.UserMapper;
 import com.zhidao.demo.service.RecommendationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -21,6 +24,9 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     @Autowired
     private PostMapper postMapper;
+
+    @Autowired
+    private UserMapper userMapper;
 
     @Override
     public List<Post> recommendPosts(User user) {
@@ -38,7 +44,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             wrapper.ne("forum_post.user_id", user.getId())
                     .orderByDesc("forum_post.create_time")
                     .last("LIMIT 10");
-            return postMapper.selectListWithNickname(wrapper);
+            return enrichAuthorProfile(postMapper.selectListWithNickname(wrapper));
         }
 
         List<Post> likedPosts = postMapper.selectBatchIds(likedPostIds);
@@ -48,7 +54,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             wrapper.ne("forum_post.user_id", user.getId())
                     .orderByDesc("forum_post.create_time")
                     .last("LIMIT 10");
-            return postMapper.selectListWithNickname(wrapper);
+            return enrichAuthorProfile(postMapper.selectListWithNickname(wrapper));
         }
 
         QueryWrapper<Post> wrapper = publishedWrapper();
@@ -57,7 +63,28 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .ne("forum_post.user_id", user.getId())
                 .orderByDesc("forum_post.create_time")
                 .last("LIMIT 10");
-        return postMapper.selectListWithNickname(wrapper);
+        return enrichAuthorProfile(postMapper.selectListWithNickname(wrapper));
+    }
+
+    /** 补齐作者昵称/头像（与帖子广场展示一致） */
+    private List<Post> enrichAuthorProfile(List<Post> posts) {
+        if (posts == null || posts.isEmpty()) {
+            return posts == null ? Collections.emptyList() : posts;
+        }
+        List<Long> userIds = posts.stream().map(Post::getUserId).distinct().collect(Collectors.toList());
+        Map<Long, User> userMap = userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+        for (Post post : posts) {
+            User author = userMap.get(post.getUserId());
+            if (author == null) continue;
+            if (post.getUserNickname() == null || post.getUserNickname().isBlank()) {
+                post.setUserNickname(author.getNickname());
+            }
+            if (post.getUserAvatar() == null || post.getUserAvatar().isBlank()) {
+                post.setUserAvatar(author.getAvatar());
+            }
+        }
+        return posts;
     }
 
     private static QueryWrapper<Post> publishedWrapper() {

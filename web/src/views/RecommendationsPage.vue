@@ -40,7 +40,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiGet, type ApiResult } from '../lib/api'
 import PostPreviewContent from '../components/PostPreviewContent.vue'
-import { authorLabel, getCategoryName as resolveCategoryName } from '../lib/postDisplay'
+import { authorLabel, getCategoryName as resolveCategoryName, normalizePostAuthor } from '../lib/postDisplay'
 import { showToast } from '../lib/toast'
 
 type Post = {
@@ -80,7 +80,7 @@ async function refresh() {
     }
 
     if (res.code === 200) {
-      posts.value = res.data || []
+      posts.value = (res.data || []).map(normalizePostAuthor)
     } else {
       showToast('error', '加载失败', res.message || '加载失败')
     }

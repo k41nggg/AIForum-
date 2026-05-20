@@ -8,6 +8,7 @@ import com.zhidao.demo.entity.Post;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.ResultMap;
 import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
@@ -25,7 +26,7 @@ public interface PostMapper extends BaseMapper<Post> {
             "FROM forum_post " +
             "LEFT JOIN sys_user u ON forum_post.user_id = u.id " +
             "${ew.customSqlSegment}")
-    @Results({
+    @Results(id = "postWithUserMap", value = {
             @Result(property = "userNickname", column = "user_nickname"),
             @Result(property = "userAvatar", column = "user_avatar")
     })
@@ -35,19 +36,13 @@ public interface PostMapper extends BaseMapper<Post> {
             "FROM forum_post " +
             "LEFT JOIN sys_user u ON forum_post.user_id = u.id " +
             "WHERE forum_post.id = #{id} AND forum_post.is_deleted = 0")
-    @Results({
-            @Result(property = "userNickname", column = "user_nickname"),
-            @Result(property = "userAvatar", column = "user_avatar")
-    })
+    @ResultMap("postWithUserMap")
     Post selectByIdWithNickname(@Param("id") Serializable id);
 
     @Select("SELECT forum_post.*, u.nickname AS user_nickname, u.avatar AS user_avatar " +
             "FROM forum_post " +
             "LEFT JOIN sys_user u ON forum_post.user_id = u.id " +
             "${ew.customSqlSegment}")
-    @Results({
-            @Result(property = "userNickname", column = "user_nickname"),
-            @Result(property = "userAvatar", column = "user_avatar")
-    })
+    @ResultMap("postWithUserMap")
     List<Post> selectListWithNickname(@Param(Constants.WRAPPER) Wrapper<Post> queryWrapper);
 }
