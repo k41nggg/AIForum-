@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zhidao.demo.entity.Comment;
-import com.zhidao.demo.entity.User;
 import com.zhidao.demo.entity.UserAction;
 import com.zhidao.demo.mapper.CommentMapper;
 import com.zhidao.demo.mapper.UserMapper;
@@ -15,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,25 +27,10 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 
     @Override
     public List<Comment> getCommentsByPostId(Long postId) {
-        // 1. 查找指定帖子的所有评论
-        List<Comment> allComments = this.list(new QueryWrapper<Comment>().eq("post_id", postId).orderByAsc("create_time"));
-
-        // 2. 查找所有评论者的用户信息
-        List<Long> userIds = allComments.stream().map(Comment::getUserId).distinct().collect(Collectors.toList());
-        if (userIds.isEmpty()) {
-            return buildTree(allComments);
-        }
-        Map<Long, User> userMap = userMapper.selectList(new QueryWrapper<User>().in("id", userIds)).stream().collect(Collectors.toMap(User::getId, user -> user));
-
-        // 3. 为每个评论设置用户昵称
-        allComments.forEach(comment -> {
-            User user = userMap.get(comment.getUserId());
-            if (user != null) {
-                comment.setUserNickname(user.getNickname());
-            }
-        });
-
-        // 4. 将列表转换为树形结构
+        List<Comment> allComments = baseMapper.selectListWithNickname(
+                new QueryWrapper<Comment>()
+                        .eq("forum_comment.post_id", postId)
+                        .orderByAsc("forum_comment.create_time"));
         return buildTree(allComments);
     }
 

@@ -12,7 +12,7 @@ import java.util.List;
 
 @Mapper
 public interface CommentMapper extends BaseMapper<Comment> {
-    @Select("SELECT forum_comment.*, COALESCE(u.nickname, u.username) as user_nickname " +
+    @Select("SELECT forum_comment.*, u.nickname as user_nickname " +
             "FROM forum_comment " +
             "LEFT JOIN sys_user u ON forum_comment.user_id = u.id " +
             "${ew.customSqlSegment}")

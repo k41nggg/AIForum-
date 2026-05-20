@@ -16,9 +16,19 @@
       <div v-else class="grid">
         <div class="avatar">
           <div class="avatar-img">
-            <img v-if="form.avatar" :src="form.avatar" alt="avatar" />
+            <img v-if="avatarSrc" :src="avatarSrc" alt="avatar" />
             <div v-else class="avatar-placeholder">{{ (me.nickname || me.username).slice(0, 1).toUpperCase() }}</div>
           </div>
+          <label class="btn btn-upload">
+            {{ uploadingAvatar ? '上传中...' : '更换头像' }}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              hidden
+              :disabled="uploadingAvatar"
+              @change="onAvatarSelect"
+            />
+          </label>
           <div class="subtle">当前角色：{{ me.role || 'USER' }}</div>
         </div>
 
@@ -27,10 +37,6 @@
             <div class="field">
               <label>昵称</label>
               <input class="input" v-model.trim="form.nickname" placeholder="昵称" />
-            </div>
-            <div class="field">
-              <label>头像 URL</label>
-              <input class="input" v-model.trim="form.avatar" placeholder="https://..." />
             </div>
             <div class="field">
               <label>个人简介</label>
@@ -71,9 +77,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiDelete, apiGet, apiPut, type ApiResult } from '../lib/api'
+import { apiDelete, apiGet, apiPut, apiUpload, type ApiResult } from '../lib/api'
 import { showToast } from '../lib/toast'
 
 type User = {
@@ -100,6 +106,7 @@ type Page<T> = {
 
 const loading = ref(false)
 const saving = ref(false)
+const uploadingAvatar = ref(false)
 const me = ref<User | null>(null)
 const postsLoading = ref(false)
 const myPosts = ref<Post[]>([])
@@ -111,6 +118,36 @@ const form = reactive({
   avatar: '',
   bio: ''
 })
+
+const avatarSrc = computed(() => {
+  const url = form.avatar?.trim()
+  if (!url) return ''
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url
+  return url.startsWith('/') ? url : `/${url}`
+})
+
+async function onAvatarSelect(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  uploadingAvatar.value = true
+  const res = await apiUpload(file)
+  uploadingAvatar.value = false
+
+  if (!res) {
+    showToast('error', '上传失败', '无法连接后端服务')
+    return
+  }
+  if (res.code !== 200 || !res.data?.url) {
+    showToast('error', '上传失败', res.message || '上传失败')
+    return
+  }
+
+  form.avatar = res.data.url
+  await save()
+}
 
 async function load() {
   loading.value = true
@@ -229,6 +266,13 @@ onMounted(() => {
   box-shadow: var(--shadow-sm);
 }
 .avatar-img img { width: 100%; height: 100%; object-fit: cover; }
+.btn-upload {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
 .avatar-placeholder {
   width: 100%; height: 100%;
   display:flex; align-items:center; justify-content:center;

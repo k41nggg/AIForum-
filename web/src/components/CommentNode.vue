@@ -1,8 +1,7 @@
 <template>
   <div class="comment-item" :style="{ marginLeft: `${level * 20}px` }">
     <div class="comment-head">
-      <span class="pill">#{{ comment.id }}</span>
-      <span class="pill">{{ comment.userNickname || comment.userId }}</span>
+      <span class="pill">{{ authorLabel(comment) }}</span>
       <span class="pill">赞 {{ comment.likeCount }}</span>
     </div>
     <div class="comment-content">{{ comment.content }}</div>
@@ -25,12 +24,21 @@
 </template>
 
 <script setup lang="ts">
+type CommentItem = {
+  userNickname?: string
+}
+
 defineProps<{
-  comment: any
+  comment: CommentItem & Record<string, unknown>
   level: number
 }>()
 
 const emit = defineEmits(['like', 'reply'])
+
+function authorLabel(c: CommentItem) {
+  const name = c.userNickname?.trim()
+  return name || '未知用户'
+}
 </script>
 
 <style scoped>
