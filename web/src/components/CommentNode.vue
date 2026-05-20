@@ -4,6 +4,7 @@
       class="comment-avatar"
       :avatar="commentAvatar(comment)"
       :name="authorLabel(comment)"
+      :user-id="comment.userId"
       size="sm"
     />
     <div class="comment-body">
@@ -37,6 +38,7 @@ import UserAvatar from './UserAvatar.vue'
 
 type CommentItem = {
   id: number
+  userId: number
   likeCount: number
   content: string
   userNickname?: string

@@ -155,7 +155,7 @@ function resolveRoute(m: MessageItem): string | null {
     const postId = m.extraId ?? m.targetId
     if (postId) return `/posts/${postId}`
   }
-  if (m.targetType === 'user' && m.targetId) return '/subscriptions'
+  if (m.targetType === 'user' && m.targetId) return `/users/${m.targetId}`
   return null
 }
 

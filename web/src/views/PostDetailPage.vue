@@ -29,7 +29,12 @@
           <span v-else class="subtle category-hint">登录后可订阅该分类</span>
         </div>
         <div class="post-author-row">
-          <UserAvatar :avatar="pickUserAvatar(post)" :name="authorLabel(post)" size="lg" />
+          <UserAvatar
+            :avatar="pickUserAvatar(post)"
+            :name="authorLabel(post)"
+            :user-id="post.userId"
+            size="lg"
+          />
           <div class="post-author-main">
             <div class="post-author-top">
               <span class="post-author-name">{{ authorLabel(post) }}</span>
@@ -96,6 +101,7 @@
             <UserAvatar
               :avatar="replyTo.userAvatar"
               :name="replyTo.userNickname?.trim() || '未知用户'"
+              :user-id="replyTo.userId"
               size="sm"
             />
             <span class="subtle">回复 {{ replyTo.userNickname?.trim() || '未知用户' }}</span>

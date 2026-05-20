@@ -177,6 +177,7 @@ public class PostController {
             @RequestParam(defaultValue = "1") Integer current,
             @RequestParam(defaultValue = "10") Integer size,
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long userId,
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "createTime") String sortBy,
             @RequestParam(defaultValue = "desc") String order) {
@@ -189,6 +190,7 @@ public class PostController {
         wrapper.eq("forum_post.is_deleted", 0);
 
         if (categoryId != null) wrapper.eq("forum_post.category_id", categoryId);
+        if (userId != null) wrapper.eq("forum_post.user_id", userId);
         if (keyword != null) {
             wrapper.and(w -> w.like("forum_post.title", keyword).or().like("forum_post.content", keyword));
         }
