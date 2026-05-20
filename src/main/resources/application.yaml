@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: aiforum
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
   datasource:
     url: jdbc:mysql://localhost:3306/aiforum?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowMultiQueries=true
     username: root
@@ -33,6 +37,12 @@ jwt:
 logging:
   level:
     com.zhidao.demo: debug
+
+app:
+  upload:
+    dir: uploads
+    max-size: 5242880
+    allowed-types: image/jpeg,image/png,image/gif,image/webp
 
 # 硅基流动（OpenAI 兼容）；api-key 也可用环境变量 AI_API_KEY 覆盖
 ai:

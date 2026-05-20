@@ -5,10 +5,12 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zhidao.demo.common.Result;
+import com.zhidao.demo.dto.CreatePostRequest;
 import com.zhidao.demo.entity.Post;
 import com.zhidao.demo.entity.User;
 import com.zhidao.demo.entity.UserAction;
 import com.zhidao.demo.mapper.PostMapper;
+import com.zhidao.demo.service.AttachmentService;
 import com.zhidao.demo.service.AuditService;
 import com.zhidao.demo.service.PostService;
 import com.zhidao.demo.service.TopicClassificationService;
@@ -44,6 +46,9 @@ public class PostController {
     @Autowired
     private TopicClassificationService topicClassificationService;
 
+    @Autowired
+    private AttachmentService attachmentService;
+
     private Long getCurrentUserId() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
@@ -70,15 +75,25 @@ public class PostController {
 
     // 1. 发布帖子
     @PostMapping
-    public Result<Post> createPost(@RequestBody Post post) {
+    public Result<Post> createPost(@RequestBody CreatePostRequest req) {
         Long userId = getCurrentUserId();
         if (userId == null) return Result.error("未登录");
+        if (req == null || req.getCategoryId() == null
+                || req.getTitle() == null || req.getTitle().isBlank()
+                || req.getContent() == null || req.getContent().isBlank()) {
+            return Result.error("分类、标题、内容不能为空");
+        }
 
+        Post post = new Post();
         post.setUserId(userId);
-        post.setStatus("AUDIT_PENDING"); // 初始状态为待审核
+        post.setCategoryId(req.getCategoryId());
+        post.setTitle(req.getTitle().trim());
+        post.setContent(req.getContent().trim());
+        post.setStatus("AUDIT_PENDING");
         postService.save(post);
 
-        // 异步执行AI审核和分类
+        attachmentService.bindToPost(req.getAttachmentIds(), post.getId(), userId);
+
         auditService.auditPost(post);
         topicClassificationService.classifyPost(post);
 

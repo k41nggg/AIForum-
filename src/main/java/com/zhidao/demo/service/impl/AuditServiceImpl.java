@@ -5,6 +5,7 @@ import com.zhidao.demo.entity.Post;
 import com.zhidao.demo.service.AIService;
 import com.zhidao.demo.service.AuditService;
 import com.zhidao.demo.service.PostService;
+import com.zhidao.demo.util.AiTextUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -20,7 +21,7 @@ public class AuditServiceImpl implements AuditService {
     @Override
     public void auditPost(Post post) {
         String title = post.getTitle() == null ? "" : post.getTitle();
-        String content = post.getContent() == null ? "" : post.getContent();
+        String content = AiTextUtils.stripImagesForAi(post.getContent());
 
         aiService.auditAndSummarize(title, content).subscribe((AuditAiResult r) -> {
             if (r != null && r.isApproved()) {

@@ -45,7 +45,7 @@
             <span class="pill">浏览 {{ p.viewCount }}</span>
             <span class="pill">点赞 {{ p.likeCount }}</span>
           </div>
-          <div class="post-content">{{ p.content.length > 100 ? p.content.slice(0, 100) + '...' : p.content }}</div>
+          <div class="post-content">{{ contentExcerpt(p.content) }}</div>
           <div class="post-actions">
             <button class="btn" @click="goDetail(p.id)">查看详情</button>
             <button class="btn" @click="like(p.id)">点赞</button>
@@ -60,6 +60,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiGet, apiPost, type ApiResult } from '../lib/api'
+import { contentExcerpt } from '../lib/markdown'
 import { showToast } from '../lib/toast'
 
 type Post = {

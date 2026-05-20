@@ -55,7 +55,24 @@
 
           <div class="field">
             <label>内容</label>
-            <textarea class="textarea" v-model.trim="createForm.content" rows="10" placeholder="分享你的想法..." />
+            <textarea
+              ref="contentRef"
+              class="textarea"
+              v-model="createForm.content"
+              rows="10"
+              placeholder="分享你的想法，支持 Markdown 插图..."
+            />
+            <div class="content-tools">
+              <label class="btn btn-upload">
+                插入图片
+                <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden @change="onImageSelect" />
+              </label>
+              <span v-if="uploading" class="subtle">上传中...</span>
+            </div>
+            <div v-if="createForm.content" class="content-preview">
+              <div class="subtle preview-label">预览</div>
+              <div class="preview-body" v-html="previewHtml" />
+            </div>
           </div>
 
           <button class="btn btn-primary" @click="createPost" :disabled="creating">
@@ -70,9 +87,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiGet, apiPost, type ApiResult } from '../lib/api'
+import { apiGet, apiPost, apiUpload, type ApiResult } from '../lib/api'
+import { renderMarkdown } from '../lib/markdown'
 import { showToast } from '../lib/toast'
 
 type Post = {
@@ -107,14 +125,19 @@ type RecommendCategoryResponse = {
 
 const creating = ref(false)
 const recommending = ref(false)
+const uploading = ref(false)
 const categories = ref<Category[]>([])
 const aiRecommend = ref<RecommendCategoryResponse | null>(null)
+const contentRef = ref<HTMLTextAreaElement | null>(null)
+const attachmentIds = ref<number[]>([])
 
 const createForm = reactive({
   categoryId: null as number | null,
   title: '',
   content: ''
 })
+
+const previewHtml = computed(() => renderMarkdown(createForm.content))
 
 const router = useRouter()
 
@@ -177,8 +200,52 @@ function clearAiRecommend() {
   aiRecommend.value = null
 }
 
+function insertAtCursor(text: string) {
+  const el = contentRef.value
+  if (!el) {
+    createForm.content += text
+    return
+  }
+  const start = el.selectionStart ?? createForm.content.length
+  const end = el.selectionEnd ?? start
+  const before = createForm.content.slice(0, start)
+  const after = createForm.content.slice(end)
+  createForm.content = before + text + after
+  const pos = start + text.length
+  requestAnimationFrame(() => {
+    el.focus()
+    el.setSelectionRange(pos, pos)
+  })
+}
+
+async function onImageSelect(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  uploading.value = true
+  const res = await apiUpload(file)
+  uploading.value = false
+
+  if (!res) {
+    showToast('error', '上传失败', '无法连接后端服务')
+    return
+  }
+  if (res.code !== 200 || !res.data) {
+    showToast('error', '上传失败', res.message || '上传失败')
+    return
+  }
+
+  attachmentIds.value.push(res.data.id)
+  insertAtCursor(`\n![${res.data.fileName || '图片'}](${res.data.url})\n`)
+  showToast('success', '上传成功', '图片已插入正文')
+}
+
 async function createPost() {
-  if (!createForm.categoryId || !createForm.title || !createForm.content) {
+  const title = createForm.title.trim()
+  const content = createForm.content.trim()
+  if (!createForm.categoryId || !title || !content) {
     showToast('error', '发布失败', '分类、标题、内容不能为空')
     return
   }
@@ -187,8 +254,9 @@ async function createPost() {
 
   const res = await apiPost<ApiResult<Post>>('/posts', {
     categoryId: createForm.categoryId,
-    title: createForm.title,
-    content: createForm.content
+    title,
+    content,
+    attachmentIds: attachmentIds.value
   })
 
   creating.value = false
@@ -243,6 +311,42 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   margin-top: 10px;
+}
+
+.content-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.btn-upload {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.content-preview {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.preview-label {
+  margin-bottom: 8px;
+}
+
+.preview-body {
+  line-height: 1.7;
+  word-break: break-word;
+}
+
+.preview-body :deep(img) {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 8px 0;
 }
 
 .badge {

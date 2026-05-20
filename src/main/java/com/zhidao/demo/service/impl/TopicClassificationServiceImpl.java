@@ -57,7 +57,7 @@ public class TopicClassificationServiceImpl implements TopicClassificationServic
     @Override
     public RecommendCategoryResponse recommendCategory(String title, String content) {
         title = title == null ? "" : title.trim();
-        content = content == null ? "" : content.trim();
+        content = com.zhidao.demo.util.AiTextUtils.stripImagesForAi(content);
 
         List<Category> categories = categoryService.list(new LambdaQueryWrapper<Category>()
                 .orderByAsc(Category::getSort)

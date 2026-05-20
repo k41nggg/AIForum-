@@ -143,3 +143,30 @@ CREATE TABLE `sys_dict` (
     `is_default` TINYINT DEFAULT 0 COMMENT '是否设为该类型的默认选项：0-否, 1-是',
     `sort` INT DEFAULT 0 COMMENT '级联排序权重'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统万能数据字典表';
+
+-- 11. 帖子/评论图片附件表（Markdown 正文用 ![](url) 引用，元数据存此表）
+CREATE TABLE `forum_attachment` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '附件主键ID',
+    `user_id` BIGINT NOT NULL COMMENT '上传者用户ID（关联 sys_user）',
+    `post_id` BIGINT DEFAULT NULL COMMENT '关联帖子ID，上传时可为空，发帖成功后回填',
+    `comment_id` BIGINT DEFAULT NULL COMMENT '关联评论ID（预留，评论插图时使用）',
+    `biz_type` TINYINT NOT NULL DEFAULT 1 COMMENT '业务类型：1-帖子, 2-评论',
+    `file_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
+    `file_path` VARCHAR(512) NOT NULL COMMENT '服务器存储相对路径（如 2026/05/20/uuid.jpg）',
+    `file_url` VARCHAR(512) NOT NULL COMMENT '对外访问 URL（如 /uploads/2026/05/20/uuid.jpg）',
+    `mime_type` VARCHAR(100) NOT NULL COMMENT 'MIME 类型，如 image/jpeg',
+    `file_size` BIGINT NOT NULL DEFAULT 0 COMMENT '文件大小（字节）',
+    `width` INT DEFAULT NULL COMMENT '图片宽度（像素，可选）',
+    `height` INT DEFAULT NULL COMMENT '图片高度（像素，可选）',
+    `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态：0-已上传未绑定, 1-已绑定帖子/评论, 2-已删除',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX `idx_user_id` (`user_id`),
+    INDEX `idx_post_id` (`post_id`),
+    INDEX `idx_comment_id` (`comment_id`),
+    INDEX `idx_status` (`status`),
+    INDEX `idx_create_time` (`create_time`),
+    FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`id`),
+    FOREIGN KEY (`post_id`) REFERENCES `forum_post` (`id`) ON DELETE SET NULL,
+    FOREIGN KEY (`comment_id`) REFERENCES `forum_comment` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='论坛图片附件表';

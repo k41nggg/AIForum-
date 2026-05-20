@@ -8,6 +8,7 @@ import com.zhidao.demo.entity.User;
 import com.zhidao.demo.service.AIService;
 import com.zhidao.demo.service.PostQaMemoryService;
 import com.zhidao.demo.service.PostService;
+import com.zhidao.demo.util.AiTextUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -47,7 +48,7 @@ public class AIController {
 
         // 2) 无缓存：调用 AI 生成一次总结（尽量复用 auditAndSummarize，减少新增接口与 token 浪费）
         String title = post.getTitle() == null ? "" : post.getTitle();
-        String content = post.getContent() == null ? "" : post.getContent();
+        String content = AiTextUtils.stripImagesForAi(post.getContent());
 
         return aiService.auditAndSummarize(title, content)
                 .map(r -> r == null ? "" : (r.getSummary() == null ? "" : r.getSummary().trim()))
@@ -77,7 +78,7 @@ public class AIController {
         }
 
         String title = post.getTitle() == null ? "" : post.getTitle();
-        String content = post.getContent() == null ? "" : post.getContent();
+        String content = AiTextUtils.stripImagesForAi(post.getContent());
 
         // 只对登录用户启用“单帖多轮（最近三轮）记忆”
         Long userId = getCurrentUserId();

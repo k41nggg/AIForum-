@@ -71,6 +71,30 @@ export function apiDelete<T>(url: string) {
   return request<T>(url, { method: 'DELETE' })
 }
 
+export type UploadResult = {
+  id: number
+  url: string
+  fileName: string
+}
+
+export async function apiUpload(file: File): Promise<ApiResult<UploadResult> | null> {
+  const token = getToken()
+  const form = new FormData()
+  form.append('file', file)
+  const headers = new Headers()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+
+  try {
+    const res = await fetch('/api/uploads', { method: 'POST', headers, body: form })
+    const text = await res.text()
+    if (!text) return null
+    return JSON.parse(text) as ApiResult<UploadResult>
+  } catch (e) {
+    console.error('Upload failed:', e)
+    return null
+  }
+}
+
 // Comment API
 export const comment = {
   getComments: (postId: number) => apiGet<ApiResult<any[]>>(`/comments/post/${postId}`),

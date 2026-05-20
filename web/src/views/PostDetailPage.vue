@@ -20,7 +20,7 @@
           <span class="pill">浏览 {{ post.viewCount }}</span>
           <span class="pill">点赞 {{ post.likeCount }}</span>
         </div>
-        <div class="post-content">{{ post.content }}</div>
+        <div class="post-content markdown-body" v-html="postContentHtml" />
         <div class="post-actions">
           <button class="btn" @click="likePost" :disabled="liking">{{ liking ? '处理中...' : '点赞' }}</button>
           <button class="btn" v-if="canDeletePost()" @click="deletePost" :disabled="deletingPost">
@@ -114,6 +114,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { renderMarkdown } from '../lib/markdown'
 import { useRoute, useRouter } from 'vue-router'
 import { apiDelete, apiGet, apiPost, getToken, type ApiResult, comment as commentApi } from '../lib/api'
 import { showToast } from '../lib/toast'
@@ -157,6 +158,7 @@ type Me = {
 const route = useRoute()
 const router = useRouter()
 const postId = computed(() => Number(route.params.id))
+const postContentHtml = computed(() => (post.value ? renderMarkdown(post.value.content) : ''))
 
 const loading = ref(false)
 const post = ref<Post | null>(null)
@@ -477,9 +479,25 @@ onMounted(async () => {
 
 .post-content {
   color: rgba(15, 23, 42, 0.88);
-  white-space: pre-wrap;
   line-height: 1.8;
   margin-bottom: 20px;
+}
+
+.markdown-body :deep(img) {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 12px 0;
+}
+
+.markdown-body :deep(p) {
+  margin: 0.6em 0;
+}
+
+.markdown-body :deep(pre) {
+  overflow-x: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .post-actions {
