@@ -91,6 +91,18 @@ CREATE TABLE `forum_subscription` (
     UNIQUE KEY `uk_user_category` (`user_id`, `category_id`) COMMENT '确保每个用户对同一分类只订阅一次'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='话题分类订阅关联表';
 
+-- 6.1 用户关注（订阅用户）
+CREATE TABLE `forum_user_follow` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '关注记录ID',
+    `follower_id` BIGINT NOT NULL COMMENT '关注者用户ID',
+    `followee_id` BIGINT NOT NULL COMMENT '被关注的用户ID',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '关注时间',
+    UNIQUE KEY `uk_follower_followee` (`follower_id`, `followee_id`),
+    INDEX `idx_followee_id` (`followee_id`),
+    FOREIGN KEY (`follower_id`) REFERENCES `sys_user` (`id`),
+    FOREIGN KEY (`followee_id`) REFERENCES `sys_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户关注表';
+
 -- 7. 举报反馈系统
 CREATE TABLE `sys_report` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '举报单ID',

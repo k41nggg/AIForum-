@@ -14,12 +14,37 @@
 
       <section class="glass card" v-if="post">
         <div class="post-title">{{ post.title }}</div>
+        <div v-if="post.categoryId" class="post-category-row">
+          <span class="category-badge">{{ getCategoryName(post.categoryId) }}</span>
+          <button
+            v-if="getToken()"
+            type="button"
+            class="btn btn-category-sub"
+            :class="{ 'btn-category-sub--active': subscribedToCategory }"
+            @click="toggleCategorySubscribe"
+            :disabled="categorySubLoading"
+          >
+            {{ categorySubLoading ? '...' : subscribedToCategory ? '已订阅分类' : '+ 订阅分类' }}
+          </button>
+          <span v-else class="subtle category-hint">登录后可订阅该分类</span>
+        </div>
         <div class="post-author-row">
           <UserAvatar :avatar="pickUserAvatar(post)" :name="authorLabel(post)" size="lg" />
-          <div class="post-author-info">
-            <div class="post-author-name">{{ authorLabel(post) }}</div>
+          <div class="post-author-main">
+            <div class="post-author-top">
+              <span class="post-author-name">{{ authorLabel(post) }}</span>
+              <button
+                v-if="canFollowAuthor()"
+                type="button"
+                class="btn btn-follow"
+                :class="{ 'btn-follow--active': followingAuthor }"
+                @click="toggleFollowAuthor"
+                :disabled="followLoading"
+              >
+                {{ followLoading ? '...' : followingAuthor ? '已关注' : '+ 关注' }}
+              </button>
+            </div>
             <div class="post-meta">
-              <span class="pill">分类 {{ getCategoryName(post.categoryId) }}</span>
               <span class="pill">浏览 {{ post.viewCount }}</span>
               <span class="pill">点赞 {{ post.likeCount }}</span>
             </div>
@@ -128,7 +153,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { renderMarkdown } from '../lib/markdown'
 import { useRoute, useRouter } from 'vue-router'
-import { apiDelete, apiGet, apiPost, getToken, type ApiResult, comment as commentApi } from '../lib/api'
+import { apiDelete, apiGet, apiPost, getToken, userFollow, type ApiResult, comment as commentApi } from '../lib/api'
 import { pickUserAvatar } from '../lib/avatar'
 import { showToast } from '../lib/toast'
 import CommentNode from '../components/CommentNode.vue'
@@ -203,7 +228,16 @@ const aiResults = ref<{ type: 'summary' | 'qa'; content: any }[]>([])
 
 const me = ref<Me | null>(null)
 const deletingPost = ref(false)
+const followingAuthor = ref(false)
+const followLoading = ref(false)
+const subscribedCategoryIds = ref<Set<number>>(new Set())
+const categorySubLoading = ref(false)
 const userAvatarCache = new Map<number, string>()
+
+const subscribedToCategory = computed(() => {
+  if (!post.value?.categoryId) return false
+  return subscribedCategoryIds.value.has(post.value.categoryId)
+})
 
 async function fetchUserAvatar(userId: number): Promise<string> {
   if (userAvatarCache.has(userId)) return userAvatarCache.get(userId)!
@@ -246,6 +280,51 @@ async function loadCategories() {
   if (res?.code === 200) categories.value = res.data || []
 }
 
+async function loadSubscribedCategories() {
+  if (!getToken()) {
+    subscribedCategoryIds.value = new Set()
+    return
+  }
+  const res = await apiGet<ApiResult<Category[]>>('/subscriptions/me')
+  if (res?.code === 200) {
+    subscribedCategoryIds.value = new Set((res.data || []).map((c) => c.id))
+  }
+}
+
+async function toggleCategorySubscribe() {
+  if (!post.value?.categoryId) return
+  if (!getToken()) {
+    showToast('error', '需要登录', '请先登录后再订阅分类')
+    return
+  }
+  const categoryId = post.value.categoryId
+  categorySubLoading.value = true
+  const res = subscribedToCategory.value
+    ? await apiDelete<ApiResult<null>>(`/subscriptions/${categoryId}`)
+    : await apiPost<ApiResult<null>>('/subscriptions', { categoryId })
+  categorySubLoading.value = false
+
+  if (!res) {
+    showToast('error', '操作失败', '无法连接后端服务')
+    return
+  }
+  if (res.code !== 200) {
+    if (!subscribedToCategory.value && res.message === '已订阅') {
+      subscribedCategoryIds.value = new Set([...subscribedCategoryIds.value, categoryId])
+      showToast('success', '已订阅', '你已关注该分类')
+      return
+    }
+    showToast('error', '操作失败', res.message || '操作失败')
+    return
+  }
+
+  const next = new Set(subscribedCategoryIds.value)
+  if (subscribedToCategory.value) next.delete(categoryId)
+  else next.add(categoryId)
+  subscribedCategoryIds.value = next
+  showToast('success', subscribedToCategory.value ? '订阅成功' : '已取消订阅', '')
+}
+
 async function loadPost() {
   loading.value = true
   const res = await apiGet<ApiResult<Post>>(`/posts/${postId.value}`)
@@ -262,6 +341,38 @@ async function loadPost() {
     return
   }
   post.value = await ensureUserAvatar(res.data)
+  await loadFollowStatus()
+}
+
+async function loadFollowStatus() {
+  followingAuthor.value = false
+  if (!post.value || !me.value || post.value.userId === me.value.id) return
+  const res = await userFollow.check(post.value.userId)
+  if (res?.code === 200) followingAuthor.value = Boolean(res.data?.following)
+}
+
+function canFollowAuthor() {
+  return Boolean(getToken() && post.value && me.value && post.value.userId !== me.value.id)
+}
+
+async function toggleFollowAuthor() {
+  if (!post.value || !me.value) return
+  followLoading.value = true
+  const authorId = post.value.userId
+  const res = followingAuthor.value
+    ? await userFollow.unfollow(authorId)
+    : await userFollow.follow(authorId)
+  followLoading.value = false
+  if (!res) {
+    showToast('error', '操作失败', '无法连接后端服务')
+    return
+  }
+  if (res.code !== 200) {
+    showToast('error', '操作失败', res.message || '操作失败')
+    return
+  }
+  followingAuthor.value = !followingAuthor.value
+  showToast('success', followingAuthor.value ? '关注成功' : '已取消关注', '')
 }
 
 async function loadComments() {
@@ -286,6 +397,7 @@ async function loadMe() {
 }
 
 async function reload() {
+  await loadSubscribedCategories()
   await loadPost()
   await loadComments()
 }
@@ -479,6 +591,7 @@ function canDelete(c: Comment) {
 onMounted(async () => {
   await loadCategories()
   await loadMe()
+  await loadSubscribedCategories()
   await reload()
 })
 </script>
@@ -517,26 +630,109 @@ onMounted(async () => {
 .post-title {
   font-size: 2rem;
   font-weight: bold;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.post-category-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(37, 99, 235, 0.06);
+  border: 1px solid rgba(37, 99, 235, 0.12);
+}
+
+.category-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: rgba(29, 78, 216, 0.95);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+.btn-category-sub {
+  padding: 4px 14px;
+  font-size: 13px;
+  min-height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 99, 235, 0.45);
+  background: rgba(37, 99, 235, 0.12);
+  color: rgba(29, 78, 216, 0.95);
+}
+
+.btn-category-sub:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 0.2);
+}
+
+.btn-category-sub--active {
+  border-color: rgba(15, 23, 42, 0.18);
+  background: rgba(15, 23, 42, 0.06);
+  color: rgba(15, 23, 42, 0.65);
+}
+
+.category-hint {
+  font-size: 0.85rem;
 }
 
 .post-author-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
   margin-bottom: 20px;
 }
 
-.post-author-info {
+.post-author-main {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-width: 0;
+}
+
+.post-author-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .post-author-name {
   font-weight: 700;
   font-size: 1.05rem;
+  line-height: 1.3;
+}
+
+.btn-follow {
+  padding: 4px 14px;
+  font-size: 13px;
+  line-height: 1.2;
+  min-height: 30px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  border: 1px solid rgba(37, 99, 235, 0.45);
+  background: rgba(37, 99, 235, 0.1);
+  color: rgba(29, 78, 216, 0.95);
+}
+
+.btn-follow:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 0.18);
+}
+
+.btn-follow--active {
+  border-color: rgba(15, 23, 42, 0.18);
+  background: rgba(15, 23, 42, 0.06);
+  color: rgba(15, 23, 42, 0.65);
+}
+
+.btn-follow--active:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.1);
 }
 
 .post-meta {

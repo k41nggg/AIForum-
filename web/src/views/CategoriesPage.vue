@@ -60,17 +60,22 @@
           <div class="cat" v-for="c in treeList" :key="c.id" :style="{ paddingLeft: (12 + c.depth * 18) + 'px' }">
             <div class="cat-head">
               <div class="cat-title">
-                <span class="pill">#{{ c.id }}</span>
                 <span class="name">{{ c.name }}</span>
+                <button type="button" class="btn btn-subscribe" @click="subscribe(c.id)">订阅</button>
               </div>
-              <div class="cat-actions">
-                <button class="btn" @click="subscribe(c.id)">订阅</button>
-                <button v-if="isAdmin" class="btn btn-danger" @click="removeCategory(c.id)">删除分类</button>
-              </div>
+              <button
+                v-if="isAdmin"
+                type="button"
+                class="btn btn-danger btn-compact"
+                @click="removeCategory(c.id)"
+              >
+                删除
+              </button>
             </div>
 
             <div class="cat-meta">
-              <span class="pill">parent {{ c.parentId }}</span>
+              <span class="pill">#{{ c.id }}</span>
+              <span class="pill" v-if="c.parentId">父类 {{ c.parentId }}</span>
               <span class="subtle" v-if="c.description">{{ c.description }}</span>
               <span class="subtle" v-else>暂无描述</span>
             </div>
@@ -283,11 +288,44 @@ onMounted(async () => {
 }
 
 .cat:first-of-type { border-top: none; }
-.cat-head { display:flex; align-items:center; justify-content:space-between; gap: 12px; }
-.cat-title { display:flex; align-items:center; gap: 10px; }
-.name { font-weight: 750; letter-spacing: 0.2px; }
-.cat-meta { display:flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
-.cat-actions { display:flex; gap: 10px; }
+.cat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cat-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.name {
+  font-weight: 750;
+  letter-spacing: 0.2px;
+}
+.btn-subscribe {
+  padding: 4px 12px;
+  font-size: 13px;
+  min-height: 28px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.btn-compact {
+  padding: 4px 10px;
+  font-size: 12px;
+  min-height: 28px;
+}
+.cat-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
 
 .btn-danger {
   border: none;

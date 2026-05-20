@@ -14,16 +14,14 @@
           <div class="nav-section">
             <div class="nav-title">用户</div>
             <RouterLink class="nav-link" to="/posts">帖子</RouterLink>
-            <RouterLink class="nav-link" to="/categories">分类</RouterLink>
             <RouterLink v-if="me" class="nav-link" to="/recommendations">推荐</RouterLink>
-            <RouterLink v-if="me" class="nav-link" to="/subscriptions">我的订阅</RouterLink>
+            <RouterLink v-if="me" class="nav-link" to="/subscriptions">订阅与关注</RouterLink>
             <RouterLink v-if="me" class="nav-link" to="/profile">个人中心</RouterLink>
           </div>
 
           <div v-if="isAdmin" class="nav-section">
             <div class="nav-title">管理员</div>
             <RouterLink class="nav-link" to="/audit">内容审核</RouterLink>
-            <!-- 分类页同时对管理员开放删除/新增等，在这里提供更明显入口 -->
             <RouterLink class="nav-link" to="/categories">分类管理</RouterLink>
           </div>
         </nav>

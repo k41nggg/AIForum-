@@ -95,6 +95,21 @@ export async function apiUpload(file: File): Promise<ApiResult<UploadResult> | n
   }
 }
 
+export type UserSummary = {
+  id: number
+  nickname?: string
+  avatar?: string
+  bio?: string
+}
+
+export const userFollow = {
+  listFollowing: () => apiGet<ApiResult<UserSummary[]>>('/user-follows/me'),
+  check: (followeeId: number) => apiGet<ApiResult<{ following: boolean }>>(`/user-follows/check/${followeeId}`),
+  follow: (followeeId: number) => apiPost<ApiResult<null>>('/user-follows', { followeeId }),
+  unfollow: (followeeId: number) => apiDelete<ApiResult<null>>(`/user-follows/${followeeId}`),
+  feed: (limit = 20) => apiGet<ApiResult<any[]>>(`/user-follows/feed?limit=${limit}`)
+}
+
 // Comment API
 export const comment = {
   getComments: (postId: number) => apiGet<ApiResult<any[]>>(`/comments/post/${postId}`),
