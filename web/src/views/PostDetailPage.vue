@@ -15,9 +15,8 @@
       <section class="glass card" v-if="post">
         <div class="post-title">{{ post.title }}</div>
         <div class="post-meta">
-          <span class="pill">#{{ post.id }}</span>
-          <span class="pill">作者 {{ post.userNickname || post.userId }}</span>
-          <span class="pill">分类 {{ post.categoryId }}</span>
+          <span class="pill">作者 {{ authorLabel(post) }}</span>
+          <span class="pill">分类 {{ getCategoryName(post.categoryId) }}</span>
           <span class="pill">浏览 {{ post.viewCount }}</span>
           <span class="pill">点赞 {{ post.likeCount }}</span>
         </div>
@@ -63,7 +62,7 @@
         <div v-else class="empty">暂无评论</div>
 
         <div v-if="replyTo" class="reply-box">
-          <div class="subtle">回复评论 #{{ replyTo.id }}（user {{ replyTo.userId }}）</div>
+          <div class="subtle">回复 {{ replyTo.userNickname?.trim() || '未知用户' }}</div>
           <div class="row" style="margin-top: 10px">
             <textarea class="textarea" v-model.trim="replyContent" rows="3" placeholder="写下回复内容..." />
             <div style="display:flex; gap: 10px; justify-content:flex-end;">
@@ -131,6 +130,11 @@ type Post = {
   likeCount: number
 }
 
+type Category = {
+  id: number
+  name: string
+}
+
 type Comment = {
   id: number
   postId: number
@@ -157,6 +161,7 @@ const postId = computed(() => Number(route.params.id))
 const loading = ref(false)
 const post = ref<Post | null>(null)
 const comments = ref<Comment[]>([])
+const categories = ref<Category[]>([])
 
 const newComment = ref('')
 const commenting = ref(false)
@@ -174,6 +179,21 @@ const aiResults = ref<{ type: 'summary' | 'qa'; content: any }[]>([])
 
 const me = ref<Me | null>(null)
 const deletingPost = ref(false)
+
+function authorLabel(p: Post) {
+  const name = p.userNickname?.trim()
+  return name || '未知用户'
+}
+
+function getCategoryName(id: number) {
+  const cat = categories.value.find((c) => c.id === id)
+  return cat ? cat.name : '未知分类'
+}
+
+async function loadCategories() {
+  const res = await apiGet<ApiResult<Category[]>>('/categories/tree')
+  if (res?.code === 200) categories.value = res.data || []
+}
 
 async function loadPost() {
   loading.value = true
@@ -406,6 +426,7 @@ function canDelete(c: Comment) {
 }
 
 onMounted(async () => {
+  await loadCategories()
   await loadMe()
   await reload()
 })

@@ -18,13 +18,13 @@ public interface PostMapper extends BaseMapper<Post> {
     @Update("UPDATE forum_post SET like_count = like_count + 1 WHERE id = #{postId}")
     int incLikeCount(@Param("postId") Long postId);
 
-    @Select("SELECT forum_post.*, COALESCE(u.nickname, u.username) as user_nickname " +
+    @Select("SELECT forum_post.*, u.nickname as user_nickname " +
             "FROM forum_post " +
             "LEFT JOIN sys_user u ON forum_post.user_id = u.id " +
             "${ew.customSqlSegment}")
     IPage<Post> selectPageWithNickname(IPage<Post> page, @Param(Constants.WRAPPER) Wrapper<Post> queryWrapper);
 
-    @Select("SELECT forum_post.*, COALESCE(u.nickname, u.username) as user_nickname " +
+    @Select("SELECT forum_post.*, u.nickname as user_nickname " +
             "FROM forum_post " +
             "LEFT JOIN sys_user u ON forum_post.user_id = u.id " +
             "WHERE forum_post.id = #{id} AND forum_post.is_deleted = 0")

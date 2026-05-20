@@ -40,8 +40,7 @@
         <div class="post" v-for="p in posts" :key="p.id">
           <div class="post-title">{{ p.title }}</div>
           <div class="post-meta">
-            <span class="pill">#{{ p.id }}</span>
-            <span class="pill">作者 {{ p.userNickname || p.userId }}</span>
+            <span class="pill">作者 {{ authorLabel(p) }}</span>
             <span class="pill">分类 {{ getCategoryName(p.categoryId) }}</span>
             <span class="pill">浏览 {{ p.viewCount }}</span>
             <span class="pill">点赞 {{ p.likeCount }}</span>
@@ -127,9 +126,14 @@ async function refresh() {
   posts.value = res.data.records || []
 }
 
+function authorLabel(p: Post) {
+  const name = p.userNickname?.trim()
+  return name || '未知用户'
+}
+
 function getCategoryName(id: number) {
   const cat = categories.value.find(c => c.id === id)
-  return cat ? cat.name : `ID: ${id}`
+  return cat ? cat.name : '未知分类'
 }
 
 async function loadCategories() {
