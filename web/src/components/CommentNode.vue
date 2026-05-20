@@ -1,39 +1,57 @@
 <template>
-  <div class="comment-item" :style="{ marginLeft: `${level * 20}px` }">
-    <UserAvatar
-      class="comment-avatar"
-      :avatar="commentAvatar(comment)"
-      :name="authorLabel(comment)"
-      :user-id="comment.userId"
-      size="sm"
-    />
-    <div class="comment-body">
-      <div class="comment-head">
-        <span class="comment-author">{{ authorLabel(comment) }}</span>
-        <span class="pill">赞 {{ comment.likeCount }}</span>
+  <div class="comment-thread" :class="{ 'comment-thread--nested': level > 0 }">
+    <div
+      class="comment-item"
+      :class="{ 'comment-item--highlight': activeReplyId === comment.id }"
+    >
+      <UserAvatar
+        class="comment-avatar"
+        :avatar="commentAvatar(comment)"
+        :name="authorLabel(comment)"
+        :user-id="comment.userId"
+        size="sm"
+      />
+      <div class="comment-bubble">
+        <div class="comment-head">
+          <button type="button" class="comment-author" @click="goUser(comment.userId)">
+            {{ authorLabel(comment) }}
+          </button>
+          <span class="comment-time">{{ formatCommentTime(comment.createTime) }}</span>
+        </div>
+        <div class="comment-content">{{ comment.content }}</div>
+        <div class="comment-actions">
+          <button
+            type="button"
+            class="action-link"
+            :class="{ 'action-link--liked': comment.likeCount > 0 }"
+            @click="emit('like', comment.id)"
+          >
+            <span class="action-icon">♥</span>
+            {{ comment.likeCount > 0 ? comment.likeCount : '赞' }}
+          </button>
+          <button type="button" class="action-link" @click="emit('reply', comment)">回复</button>
+        </div>
       </div>
-      <div class="comment-content">{{ comment.content }}</div>
-      <div class="comment-actions">
-        <button class="btn" @click="emit('like', comment.id)">点赞</button>
-        <button class="btn" @click="emit('reply', comment)">回复</button>
-      </div>
+    </div>
 
-      <div v-if="comment.children && comment.children.length > 0" class="comment-children">
-        <CommentNode
-          v-for="child in comment.children"
-          :key="child.id"
-          :comment="child"
-          :level="level + 1"
-          @like="emit('like', $event)"
-          @reply="emit('reply', $event)"
-        />
-      </div>
+    <div v-if="comment.children?.length" class="comment-children">
+      <CommentNode
+        v-for="child in comment.children"
+        :key="child.id"
+        :comment="child"
+        :level="level + 1"
+        :active-reply-id="activeReplyId"
+        @like="emit('like', $event)"
+        @reply="emit('reply', $event)"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { pickUserAvatar } from '../lib/avatar'
+import { formatCommentTime } from '../lib/time'
 import UserAvatar from './UserAvatar.vue'
 
 type CommentItem = {
@@ -41,6 +59,7 @@ type CommentItem = {
   userId: number
   likeCount: number
   content: string
+  createTime?: string
   userNickname?: string
   userAvatar?: string
   children?: CommentItem[]
@@ -49,9 +68,15 @@ type CommentItem = {
 defineProps<{
   comment: CommentItem
   level: number
+  activeReplyId?: number | null
 }>()
 
-const emit = defineEmits(['like', 'reply'])
+const emit = defineEmits<{
+  like: [id: number]
+  reply: [comment: CommentItem]
+}>()
+
+const router = useRouter()
 
 function authorLabel(c: CommentItem) {
   const name = c.userNickname?.trim()
@@ -61,44 +86,110 @@ function authorLabel(c: CommentItem) {
 function commentAvatar(c: CommentItem) {
   return pickUserAvatar(c)
 }
+
+function goUser(userId: number) {
+  router.push(`/users/${userId}`)
+}
 </script>
 
 <style scoped>
+.comment-thread--nested {
+  margin-top: 4px;
+}
+
 .comment-item {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  border-left: 2px solid #eee;
-  padding-left: 12px;
-  margin-top: 15px;
 }
-.comment-body {
+
+.comment-item--highlight .comment-bubble {
+  border-color: rgba(37, 99, 235, 0.45);
+  background: rgba(37, 99, 235, 0.06);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.comment-bubble {
   flex: 1;
   min-width: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.82);
 }
-.comment-head,
+
+.comment-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.comment-author {
+  padding: 0;
+  border: none;
+  background: none;
+  font-weight: 700;
+  font-size: 14px;
+  color: rgba(15, 23, 42, 0.92);
+  cursor: pointer;
+}
+
+.comment-author:hover {
+  color: var(--primary);
+}
+
+.comment-time {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.comment-content {
+  line-height: 1.65;
+  word-break: break-word;
+  white-space: pre-wrap;
+  color: rgba(15, 23, 42, 0.88);
+}
+
 .comment-actions {
   display: flex;
-  gap: 8px;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.action-link {
+  display: inline-flex;
   align-items: center;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
 }
-.comment-author {
-  font-weight: 650;
-  color: rgba(15, 23, 42, 0.9);
+
+.action-link:hover {
+  color: var(--primary);
 }
-.comment-content {
-  margin-bottom: 8px;
-  line-height: 1.6;
-  word-break: break-word;
+
+.action-link--liked {
+  color: rgba(220, 38, 38, 0.85);
 }
+
+.action-link--liked:hover {
+  color: rgba(185, 28, 28, 0.95);
+}
+
+.action-icon {
+  font-size: 12px;
+}
+
 .comment-children {
-  margin-top: 10px;
-  margin-left: 0;
-}
-.comment-children :deep(.comment-item) {
-  border-left-color: rgba(15, 23, 42, 0.08);
-  padding-left: 10px;
+  margin: 8px 0 0 42px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 </style>

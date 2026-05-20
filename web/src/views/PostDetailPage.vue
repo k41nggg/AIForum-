@@ -68,53 +68,86 @@
         <div class="subtle">{{ loading ? '加载中...' : '帖子不存在或已被删除' }}</div>
       </section>
 
-      <section class="glass card">
+      <section class="glass card comments-section">
         <div class="section-head">
           <h2 class="h2">评论</h2>
-          <span class="pill">共 {{ comments.length }} 条</span>
+          <span class="pill">
+            {{ commentTotalCount > 0 ? `共 ${commentTotalCount} 条` : '暂无评论' }}
+            <template v-if="comments.length > 0 && commentTotalCount > comments.length">
+              · {{ comments.length }} 条主评论
+            </template>
+          </span>
         </div>
 
-        <div class="row">
-          <div class="field">
-            <label>发表评论</label>
-            <textarea class="textarea" v-model.trim="newComment" rows="4" placeholder="写下你的看法..." />
-          </div>
-          <button class="btn btn-primary" @click="submitComment" :disabled="commenting">
-            {{ commenting ? '提交中...' : '发布评论' }}
-          </button>
-        </div>
-
-        <div class="comments" v-if="comments.length > 0">
-          <CommentNode
-            v-for="c in comments"
-            :key="c.id"
-            :comment="c"
-            :level="0"
-            @like="likeComment"
-            @reply="setReplyTo"
+        <div v-if="getToken()" class="comment-composer">
+          <label class="composer-label">发表评论</label>
+          <textarea
+            class="textarea composer-input"
+            v-model.trim="newComment"
+            rows="3"
+            maxlength="2000"
+            placeholder="写下你的看法…"
+            @keydown.ctrl.enter="submitComment"
           />
+          <div class="composer-foot">
+            <span class="subtle composer-hint">Ctrl + Enter 发送</span>
+            <button class="btn btn-primary" @click="submitComment" :disabled="commenting || !newComment">
+              {{ commenting ? '提交中...' : '发布评论' }}
+            </button>
+          </div>
         </div>
-        <div v-else class="empty">暂无评论</div>
+        <p v-else class="comment-login-hint">
+          <RouterLink :to="{ path: '/login', query: { redirect: route.fullPath } }">登录</RouterLink>
+          后即可参与评论
+        </p>
 
-        <div v-if="replyTo" class="reply-box">
-          <div class="reply-to-row">
+        <div v-if="replyTo" id="comment-reply-box" class="reply-banner">
+          <div class="reply-banner-head">
             <UserAvatar
               :avatar="replyTo.userAvatar"
               :name="replyTo.userNickname?.trim() || '未知用户'"
               :user-id="replyTo.userId"
               size="sm"
             />
-            <span class="subtle">回复 {{ replyTo.userNickname?.trim() || '未知用户' }}</span>
+            <span class="reply-banner-text">
+              回复 <strong>{{ replyTo.userNickname?.trim() || '未知用户' }}</strong>
+            </span>
+            <button type="button" class="reply-close" aria-label="取消回复" @click="cancelReply">×</button>
           </div>
-          <div class="row" style="margin-top: 10px">
-            <textarea class="textarea" v-model.trim="replyContent" rows="3" placeholder="写下回复内容..." />
-            <div style="display:flex; gap: 10px; justify-content:flex-end;">
-              <button class="btn" @click="cancelReply">取消</button>
-              <button class="btn btn-primary" @click="submitReply" :disabled="replying">
-                {{ replying ? '提交中...' : '提交回复' }}
+          <textarea
+            ref="replyInputRef"
+            class="textarea"
+            v-model.trim="replyContent"
+            rows="3"
+            maxlength="2000"
+            :placeholder="`回复 ${replyTo.userNickname?.trim() || '该用户'}…`"
+            @keydown.ctrl.enter="submitReply"
+          />
+          <div class="composer-foot">
+            <span class="subtle composer-hint">Ctrl + Enter 发送</span>
+            <div class="reply-actions">
+              <button type="button" class="btn" @click="cancelReply">取消</button>
+              <button class="btn btn-primary" @click="submitReply" :disabled="replying || !replyContent">
+                {{ replying ? '提交中...' : '发送回复' }}
               </button>
             </div>
           </div>
+        </div>
+
+        <div v-if="comments.length > 0" class="comments-list">
+          <CommentNode
+            v-for="c in comments"
+            :key="c.id"
+            :comment="c"
+            :level="0"
+            :active-reply-id="replyTo?.id ?? null"
+            @like="likeComment"
+            @reply="setReplyTo"
+          />
+        </div>
+        <div v-else class="comments-empty">
+          <div class="comments-empty-icon">💬</div>
+          <p>还没有评论，来抢沙发吧</p>
         </div>
       </section>
     </div>
@@ -156,7 +189,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { renderMarkdown } from '../lib/markdown'
 import { useRoute, useRouter } from 'vue-router'
 import { apiDelete, apiGet, apiPost, getToken, userFollow, type ApiResult, comment as commentApi } from '../lib/api'
@@ -224,6 +257,13 @@ const commenting = ref(false)
 const replyTo = ref<Comment | null>(null)
 const replyContent = ref('')
 const replying = ref(false)
+const replyInputRef = ref<HTMLTextAreaElement | null>(null)
+
+function countComments(list: Comment[]): number {
+  return list.reduce((n, c) => n + 1 + (c.children?.length ? countComments(c.children) : 0), 0)
+}
+
+const commentTotalCount = computed(() => countComments(comments.value))
 
 const liking = ref(false)
 
@@ -477,9 +517,16 @@ async function submitComment() {
   await loadComments()
 }
 
-function setReplyTo(c: Comment) {
+async function setReplyTo(c: Comment) {
+  if (!getToken()) {
+    showToast('error', '需要登录', '登录后才能回复')
+    return
+  }
   replyTo.value = c
   replyContent.value = ''
+  await nextTick()
+  replyInputRef.value?.focus()
+  document.getElementById('comment-reply-box')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
 }
 
 function cancelReply() {
@@ -804,29 +851,124 @@ onMounted(async () => {
   flex-grow: 1;
 }
 
-.comments {
-  display: grid;
+.comments-section .section-head {
+  margin-bottom: 16px;
+}
+
+.comment-composer {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.composer-label {
+  display: block;
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.composer-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 72px;
+}
+
+.composer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  margin-top: 20px;
+  margin-top: 10px;
+  flex-wrap: wrap;
 }
 
-.empty {
-  text-align: center;
-  padding: 40px;
-  color: #888;
+.composer-hint {
+  font-size: 12px;
 }
 
-.reply-box {
-  margin-top: 20px;
-  padding: 15px;
-  background-color: rgba(0, 0, 0, 0.05);
-  border-radius: 8px;
+.comment-login-hint {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.06);
+  border: 1px solid rgba(37, 99, 235, 0.15);
+  font-size: 14px;
 }
 
-.reply-to-row {
+.comment-login-hint a {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.reply-banner {
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(37, 99, 235, 0.06);
+  border: 1px solid rgba(37, 99, 235, 0.22);
+}
+
+.reply-banner-head {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-bottom: 10px;
+}
+
+.reply-banner-text {
+  flex: 1;
+  font-size: 14px;
+  color: rgba(15, 23, 42, 0.75);
+}
+
+.reply-banner-text strong {
+  color: rgba(15, 23, 42, 0.95);
+}
+
+.reply-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.06);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.reply-close:hover {
+  background: rgba(15, 23, 42, 0.1);
+  color: rgba(15, 23, 42, 0.85);
+}
+
+.reply-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.comments-empty {
+  text-align: center;
+  padding: 36px 16px;
+  color: var(--muted);
+}
+
+.comments-empty-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+  opacity: 0.6;
+}
+
+.comments-empty p {
+  margin: 0;
+  font-size: 14px;
 }
 
 .ai-card {
