@@ -8,7 +8,6 @@ import CategoriesPage from './views/CategoriesPage.vue'
 import AuditPage from './views/AuditPage.vue'
 import ProfilePage from './views/ProfilePage.vue'
 import UserProfilePage from './views/UserProfilePage.vue'
-import SubscriptionsPage from './views/SubscriptionsPage.vue'
 import RecommendationsPage from './views/RecommendationsPage.vue'
 import MessagesPage from './views/MessagesPage.vue'
 import { getToken } from './lib/api'
@@ -24,7 +23,7 @@ export const router = createRouter({
     { path: '/login', component: LoginPage },
     { path: '/register', component: RegisterPage },
     { path: '/categories', component: CategoriesPage },
-    { path: '/subscriptions', component: SubscriptionsPage, meta: { requiresAuth: true } },
+    { path: '/subscriptions', redirect: { path: '/profile', query: { tab: 'categories' } } },
     { path: '/profile', component: ProfilePage, meta: { requiresAuth: true } },
     { path: '/users/:id', component: UserProfilePage },
     { path: '/audit', component: AuditPage, meta: { requiresAuth: true } },

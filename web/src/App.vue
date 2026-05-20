@@ -15,7 +15,6 @@
             <div class="nav-title">用户</div>
             <RouterLink class="nav-link" to="/posts">帖子</RouterLink>
             <RouterLink v-if="me" class="nav-link" to="/recommendations">推荐</RouterLink>
-            <RouterLink v-if="me" class="nav-link" to="/subscriptions">订阅与关注</RouterLink>
             <RouterLink v-if="me" class="nav-link nav-link-messages" to="/messages">
               消息
               <span v-if="unreadCount > 0" class="nav-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
