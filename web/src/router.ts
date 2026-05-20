@@ -9,6 +9,7 @@ import AuditPage from './views/AuditPage.vue'
 import ProfilePage from './views/ProfilePage.vue'
 import SubscriptionsPage from './views/SubscriptionsPage.vue'
 import RecommendationsPage from './views/RecommendationsPage.vue'
+import MessagesPage from './views/MessagesPage.vue'
 import { getToken } from './lib/api'
 import { showToast } from './lib/toast'
 
@@ -25,7 +26,8 @@ export const router = createRouter({
     { path: '/subscriptions', component: SubscriptionsPage, meta: { requiresAuth: true } },
     { path: '/profile', component: ProfilePage, meta: { requiresAuth: true } },
     { path: '/audit', component: AuditPage, meta: { requiresAuth: true } },
-    { path: '/recommendations', component: RecommendationsPage, meta: { requiresAuth: true } }
+    { path: '/recommendations', component: RecommendationsPage, meta: { requiresAuth: true } },
+    { path: '/messages', component: MessagesPage, meta: { requiresAuth: true } }
   ]
 })
 

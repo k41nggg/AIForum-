@@ -10,6 +10,7 @@ import com.zhidao.demo.entity.UserFollow;
 import com.zhidao.demo.mapper.PostMapper;
 import com.zhidao.demo.mapper.UserFollowMapper;
 import com.zhidao.demo.mapper.UserMapper;
+import com.zhidao.demo.service.NotificationService;
 import com.zhidao.demo.service.UserFollowService;
 import com.zhidao.demo.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,9 @@ public class UserFollowServiceImpl extends ServiceImpl<UserFollowMapper, UserFol
     @Autowired
     private PostMapper postMapper;
 
+    @Autowired
+    private NotificationService notificationService;
+
     @Override
     public void follow(Long followerId, Long followeeId) {
         if (followerId == null || followeeId == null) {
@@ -50,6 +54,7 @@ public class UserFollowServiceImpl extends ServiceImpl<UserFollowMapper, UserFol
         follow.setFolloweeId(followeeId);
         try {
             save(follow);
+            notificationService.onUserFollowed(followeeId, followerId);
         } catch (DuplicateKeyException ex) {
             throw new IllegalStateException("已关注");
         }

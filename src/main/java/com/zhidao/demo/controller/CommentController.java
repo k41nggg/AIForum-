@@ -5,7 +5,9 @@ import com.zhidao.demo.common.Result;
 import com.zhidao.demo.entity.Comment;
 import com.zhidao.demo.entity.User;
 import com.zhidao.demo.mapper.CommentMapper;
+import com.zhidao.demo.entity.Post;
 import com.zhidao.demo.service.CommentService;
+import com.zhidao.demo.service.NotificationService;
 import com.zhidao.demo.service.PostService;
 import com.zhidao.demo.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +31,9 @@ public class CommentController {
 
     @Autowired
     private CommentMapper commentMapper;
+
+    @Autowired
+    private NotificationService notificationService;
 
     private Long getCurrentUserId() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -74,6 +79,18 @@ public class CommentController {
         }
 
         commentService.save(comment);
+
+        Post post = postService.getById(comment.getPostId());
+        if (post != null) {
+            if (comment.getParentId() != null && comment.getParentId() != 0) {
+                Comment parent = commentService.getById(comment.getParentId());
+                if (parent != null) {
+                    notificationService.onCommentReplied(comment, parent, post);
+                }
+            } else {
+                notificationService.onPostCommented(comment, post);
+            }
+        }
         return Result.success(comment);
     }
 
@@ -109,6 +126,9 @@ public class CommentController {
         if (userId == null) return Result.error("未登录");
 
         boolean success = commentService.likeComment(id, userId);
+        if (success) {
+            notificationService.onCommentLiked(id, userId);
+        }
         return success ? Result.success(null) : Result.error("操作失败，您可能已经点赞过该评论");
     }
 

@@ -16,6 +16,10 @@
             <RouterLink class="nav-link" to="/posts">帖子</RouterLink>
             <RouterLink v-if="me" class="nav-link" to="/recommendations">推荐</RouterLink>
             <RouterLink v-if="me" class="nav-link" to="/subscriptions">订阅与关注</RouterLink>
+            <RouterLink v-if="me" class="nav-link nav-link-messages" to="/messages">
+              消息
+              <span v-if="unreadCount > 0" class="nav-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+            </RouterLink>
             <RouterLink v-if="me" class="nav-link" to="/profile">个人中心</RouterLink>
           </div>
 
@@ -55,9 +59,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiGet, clearToken, type ApiResult } from './lib/api'
+import { apiGet, clearToken, messages, type ApiResult } from './lib/api'
 import { toast as toastState, showToast } from './lib/toast'
 
 type User = {
@@ -69,13 +73,35 @@ type User = {
 
 const router = useRouter()
 const me = ref<User | null>(null)
+const unreadCount = ref(0)
+let unreadTimer: ReturnType<typeof setInterval> | null = null
 
 const isAdmin = computed(() => (me.value?.role || '').toUpperCase() === 'ADMIN')
 
+async function loadUnread() {
+  if (!me.value) {
+    unreadCount.value = 0
+    return
+  }
+  const res = await messages.unreadCount()
+  if (res?.code === 200 && res.data) unreadCount.value = res.data.count ?? 0
+}
+
 async function loadMe() {
   const res = await apiGet<ApiResult<User>>('/users/me')
-  if (res?.code === 200) me.value = res.data
-  else me.value = null
+  if (res?.code === 200) {
+    me.value = res.data
+    await loadUnread()
+    if (unreadTimer) clearInterval(unreadTimer)
+    unreadTimer = setInterval(loadUnread, 60000)
+  } else {
+    me.value = null
+    unreadCount.value = 0
+    if (unreadTimer) {
+      clearInterval(unreadTimer)
+      unreadTimer = null
+    }
+  }
 }
 
 function logout() {
@@ -92,9 +118,14 @@ const toastTitle = computed(() => {
 })
 
 onMounted(loadMe)
+onUnmounted(() => {
+  if (unreadTimer) clearInterval(unreadTimer)
+})
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ;(window as any).__AUTH_CHANGED__ = loadMe
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(window as any).__MESSAGES_CHANGED__ = loadUnread
 </script>
 
 <style scoped>
@@ -150,6 +181,22 @@ onMounted(loadMe)
   color: var(--text);
   background: rgba(37, 99, 235, 0.08);
   border: 1px solid rgba(37, 99, 235, 0.22);
+}
+.nav-link-messages { position: relative; }
+.nav-badge {
+  margin-left: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 .auth {
   display:flex;

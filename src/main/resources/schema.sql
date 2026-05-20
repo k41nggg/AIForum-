@@ -135,16 +135,23 @@ CREATE TABLE `sys_log` (
     `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '日志生成的记录时间'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统操作审计日志表';
 
--- 9. 消息中心与系统通知
+-- 9. 站内通知消息（类型见 NotificationType.java）
 CREATE TABLE `sys_message` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '消息ID',
-    `sender_id` BIGINT COMMENT '发送者ID（0或NULL表示为系统自动发送的消息）',
-    `receiver_id` BIGINT NOT NULL COMMENT '接收该消息的用户ID',
-    `content` TEXT NOT NULL COMMENT '具体的消息通知内容',
-    `type` TINYINT COMMENT '消息子类型：1-系统群发通知, 2-获得的评论回复, 3-获得的点赞反馈, 4-用户私信',
-    `is_read` TINYINT DEFAULT 0 COMMENT '查看状态：0-未读, 1-已读',
-    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '消息送达时间'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统消息通知中心表';
+    `receiver_id` BIGINT NOT NULL COMMENT '接收者用户ID',
+    `sender_id` BIGINT DEFAULT NULL COMMENT '触发者ID，NULL表示系统',
+    `type` INT NOT NULL COMMENT '消息类型，见 NotificationType',
+    `title` VARCHAR(255) DEFAULT NULL COMMENT '标题',
+    `content` TEXT NOT NULL COMMENT '正文',
+    `target_type` VARCHAR(20) DEFAULT NULL COMMENT '关联类型: post, comment, user, category',
+    `target_id` BIGINT DEFAULT NULL COMMENT '关联ID',
+    `extra_id` BIGINT DEFAULT NULL COMMENT '扩展ID，如帖子ID（评论类通知跳转用）',
+    `is_read` TINYINT NOT NULL DEFAULT 0 COMMENT '0未读 1已读',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX `idx_receiver_read` (`receiver_id`, `is_read`),
+    INDEX `idx_receiver_time` (`receiver_id`, `create_time`),
+    FOREIGN KEY (`receiver_id`) REFERENCES `sys_user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='站内通知消息表';
 
 -- 10. 全局数据字典模块
 CREATE TABLE `sys_dict` (

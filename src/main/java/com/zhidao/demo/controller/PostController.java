@@ -12,6 +12,7 @@ import com.zhidao.demo.entity.UserAction;
 import com.zhidao.demo.mapper.PostMapper;
 import com.zhidao.demo.service.AttachmentService;
 import com.zhidao.demo.service.AuditService;
+import com.zhidao.demo.service.NotificationService;
 import com.zhidao.demo.service.PostService;
 import com.zhidao.demo.service.TopicClassificationService;
 import com.zhidao.demo.service.UserActionService;
@@ -48,6 +49,9 @@ public class PostController {
 
     @Autowired
     private AttachmentService attachmentService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     private Long getCurrentUserId() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -140,7 +144,11 @@ public class PostController {
             return Result.error("无权删除");
         }
 
+        boolean adminDelete = "ADMIN".equals(currentUser.getRole()) && !oldPost.getUserId().equals(userId);
         postService.removeById(id);
+        if (adminDelete) {
+            notificationService.onPostRemovedByAdmin(oldPost, userId);
+        }
         return Result.success(null);
     }
 
@@ -252,8 +260,8 @@ public class PostController {
             return Result.error("已点赞");
         }
 
-        // 只有首次点赞才会自增
         postMapper.incLikeCount(id);
+        notificationService.onPostLiked(id, userId);
 
         return Result.success(null);
     }
@@ -313,6 +321,11 @@ public class PostController {
 
         post.setStatus(status);
         postService.updateById(post);
+        if ("PUBLISHED".equals(status)) {
+            notificationService.onPostAuditApproved(post);
+        } else if ("DELETED".equals(status)) {
+            notificationService.onPostRemovedByAdmin(post, userId);
+        }
         return Result.success(null);
     }
 

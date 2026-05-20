@@ -110,6 +110,36 @@ export const userFollow = {
   feed: (limit = 20) => apiGet<ApiResult<any[]>>(`/user-follows/feed?limit=${limit}`)
 }
 
+export type MessageItem = {
+  id: number
+  type: number
+  title?: string
+  content: string
+  senderId?: number
+  senderNickname?: string
+  senderAvatar?: string
+  targetType?: string
+  targetId?: number
+  extraId?: number
+  isRead: number
+  createTime?: string
+}
+
+export type MessagePage = {
+  records: MessageItem[]
+  total: number
+  current: number
+  size: number
+}
+
+export const messages = {
+  list: (current = 1, size = 20) =>
+    apiGet<ApiResult<MessagePage>>(`/messages?current=${current}&size=${size}`),
+  unreadCount: () => apiGet<ApiResult<{ count: number }>>('/messages/unread-count'),
+  markRead: (id: number) => apiPut<ApiResult<null>>(`/messages/${id}/read`),
+  markAllRead: () => apiPut<ApiResult<null>>('/messages/read-all')
+}
+
 // Comment API
 export const comment = {
   getComments: (postId: number) => apiGet<ApiResult<any[]>>(`/comments/post/${postId}`),
