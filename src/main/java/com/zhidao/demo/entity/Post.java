@@ -19,6 +19,10 @@ public class Post implements Serializable {
     @TableField(exist = false)
     private String userNickname;
 
+    /** 展示用：发帖人头像，对应 user_avatar */
+    @TableField(exist = false)
+    private String userAvatar;
+
     private Long categoryId;
     private String title;
     private String content;

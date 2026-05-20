@@ -41,11 +41,11 @@
           <div class="post-title">{{ p.title }}</div>
           <div class="post-meta">
             <span class="pill">作者 {{ authorLabel(p) }}</span>
-            <span class="pill">分类 {{ getCategoryName(p.categoryId) }}</span>
+            <span class="pill">分类 {{ resolveCategoryName(p.categoryId, categories) }}</span>
             <span class="pill">浏览 {{ p.viewCount }}</span>
             <span class="pill">点赞 {{ p.likeCount }}</span>
           </div>
-          <div class="post-content">{{ contentExcerpt(p.content) }}</div>
+          <PostPreviewContent :content="p.content" />
           <div class="post-actions">
             <button class="btn" @click="goDetail(p.id)">查看详情</button>
             <button class="btn" @click="like(p.id)">点赞</button>
@@ -60,7 +60,8 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiGet, apiPost, type ApiResult } from '../lib/api'
-import { contentExcerpt } from '../lib/markdown'
+import PostPreviewContent from '../components/PostPreviewContent.vue'
+import { authorLabel, getCategoryName as resolveCategoryName } from '../lib/postDisplay'
 import { showToast } from '../lib/toast'
 
 type Post = {
@@ -127,16 +128,6 @@ async function refresh() {
   posts.value = res.data.records || []
 }
 
-function authorLabel(p: Post) {
-  const name = p.userNickname?.trim()
-  return name || '未知用户'
-}
-
-function getCategoryName(id: number) {
-  const cat = categories.value.find(c => c.id === id)
-  return cat ? cat.name : '未知分类'
-}
-
 async function loadCategories() {
   const res = await apiGet<ApiResult<Category[]>>('/categories/tree')
   if (res?.code === 200) {
@@ -188,9 +179,7 @@ onMounted(() => {
   color: var(--muted);
   margin-bottom: 8px;
 }
-.post-content {
-  color: var(--text);
-  line-height: 1.6;
+.post :deep(.post-preview) {
   margin-bottom: 16px;
 }
 .post-actions {

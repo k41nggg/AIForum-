@@ -15,11 +15,31 @@ export function renderMarkdown(raw: string): string {
   })
 }
 
+/** 解析 Markdown 图片地址（列表预览用） */
+export function extractImageUrls(raw: string, max = 3): string[] {
+  if (!raw) return []
+  const urls: string[] = []
+  const re = /!\[[^\]]*\]\(([^)]+)\)/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(raw)) !== null && urls.length < max) {
+    const url = m[1]?.trim()
+    if (url && !urls.includes(url)) urls.push(url)
+  }
+  return urls
+}
+
+export function resolveMediaUrl(url: string): string {
+  const u = url.trim()
+  if (!u) return ''
+  if (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('data:')) return u
+  return u.startsWith('/') ? u : `/${u}`
+}
+
 /** 列表摘要：去掉图片与 Markdown 符号，只留纯文本 */
 export function contentExcerpt(raw: string, maxLen = 100): string {
   if (!raw) return ''
   const plain = raw
-    .replace(/!\[[^\]]*\]\([^)]+\)/g, '[图片]')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/[#*_`>~-]/g, '')
     .replace(/\s+/g, ' ')

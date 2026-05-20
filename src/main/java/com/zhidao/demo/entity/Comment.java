@@ -25,6 +25,9 @@ public class Comment implements Serializable {
     private String userNickname;
 
     @TableField(exist = false)
+    private String userAvatar;
+
+    @TableField(exist = false)
     private List<Comment> children;
 
     @TableField(fill = FieldFill.INSERT)

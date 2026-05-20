@@ -1,5 +1,6 @@
 package com.zhidao.demo.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.zhidao.demo.entity.Post;
 import com.zhidao.demo.entity.User;
 import com.zhidao.demo.entity.UserAction;
@@ -33,23 +34,36 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .collect(Collectors.toList());
 
         if (likedPostIds.isEmpty()) {
-            // If the user has not liked any posts, return the latest posts, excluding posts by the current user
-            return postMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Post>()
-                    .ne(Post::getUserId, user.getId())
-                    .orderByDesc(Post::getCreateTime)
-                    .last("LIMIT 10"));
-        } else {
-            // Find posts with similar categories to the liked posts
-            List<Post> likedPosts = postMapper.selectBatchIds(likedPostIds);
-            List<Long> likedCategoryIds = likedPosts.stream().map(Post::getCategoryId).distinct().collect(Collectors.toList());
-
-            // Find other posts in the same categories, excluding posts already liked and posts by the current user
-            return postMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Post>()
-                    .in(Post::getCategoryId, likedCategoryIds)
-                    .notIn(Post::getId, likedPostIds)
-                    .ne(Post::getUserId, user.getId())
-                    .orderByDesc(Post::getCreateTime)
-                    .last("LIMIT 10"));
+            QueryWrapper<Post> wrapper = publishedWrapper();
+            wrapper.ne("forum_post.user_id", user.getId())
+                    .orderByDesc("forum_post.create_time")
+                    .last("LIMIT 10");
+            return postMapper.selectListWithNickname(wrapper);
         }
+
+        List<Post> likedPosts = postMapper.selectBatchIds(likedPostIds);
+        List<Long> likedCategoryIds = likedPosts.stream().map(Post::getCategoryId).distinct().collect(Collectors.toList());
+        if (likedCategoryIds.isEmpty()) {
+            QueryWrapper<Post> wrapper = publishedWrapper();
+            wrapper.ne("forum_post.user_id", user.getId())
+                    .orderByDesc("forum_post.create_time")
+                    .last("LIMIT 10");
+            return postMapper.selectListWithNickname(wrapper);
+        }
+
+        QueryWrapper<Post> wrapper = publishedWrapper();
+        wrapper.in("forum_post.category_id", likedCategoryIds)
+                .notIn("forum_post.id", likedPostIds)
+                .ne("forum_post.user_id", user.getId())
+                .orderByDesc("forum_post.create_time")
+                .last("LIMIT 10");
+        return postMapper.selectListWithNickname(wrapper);
+    }
+
+    private static QueryWrapper<Post> publishedWrapper() {
+        QueryWrapper<Post> wrapper = new QueryWrapper<>();
+        wrapper.eq("forum_post.status", "PUBLISHED");
+        wrapper.eq("forum_post.is_deleted", 0);
+        return wrapper;
     }
 }

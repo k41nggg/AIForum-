@@ -19,15 +19,14 @@
       <div v-else-if="posts.length === 0" class="empty">暂无推荐内容，多去看看帖子吧</div>
 
       <div class="post" v-for="p in posts" :key="p.id">
-        <div class="post-title">{{ p.title }}</div>
+        <div class="post-title" @click="goDetail(p.id)">{{ p.title }}</div>
         <div class="post-meta">
-          <span class="pill">#{{ p.id }}</span>
-          <span class="pill">作者 {{ p.userNickname || p.userId }}</span>
-          <span class="pill">分类 {{ p.categoryId }}</span>
+          <span class="pill">作者 {{ authorLabel(p) }}</span>
+          <span class="pill">分类 {{ resolveCategoryName(p.categoryId, categories) }}</span>
           <span class="pill">浏览 {{ p.viewCount }}</span>
           <span class="pill">点赞 {{ p.likeCount }}</span>
         </div>
-        <div class="post-content">{{ p.content.length > 100 ? p.content.slice(0, 100) + '...' : p.content }}</div>
+        <PostPreviewContent :content="p.content" />
         <div class="post-actions">
           <button class="btn" @click="goDetail(p.id)">查看详情</button>
         </div>
@@ -40,6 +39,8 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiGet, type ApiResult } from '../lib/api'
+import PostPreviewContent from '../components/PostPreviewContent.vue'
+import { authorLabel, getCategoryName as resolveCategoryName } from '../lib/postDisplay'
 import { showToast } from '../lib/toast'
 
 type Post = {
@@ -53,9 +54,20 @@ type Post = {
   likeCount: number
 }
 
+type Category = {
+  id: number
+  name: string
+}
+
 const loading = ref(false)
 const posts = ref<Post[]>([])
+const categories = ref<Category[]>([])
 const router = useRouter()
+
+async function loadCategories() {
+  const res = await apiGet<ApiResult<Category[]>>('/categories/tree')
+  if (res?.code === 200) categories.value = res.data || []
+}
 
 async function refresh() {
   loading.value = true
@@ -83,7 +95,10 @@ function goDetail(id: number) {
   router.push(`/posts/${id}`)
 }
 
-onMounted(refresh)
+onMounted(() => {
+  loadCategories()
+  refresh()
+})
 </script>
 
 <style scoped>
@@ -95,8 +110,14 @@ onMounted(refresh)
 
 .post { padding: 14px 0; border-top: 1px solid rgba(15, 23, 42, 0.10); }
 .post:first-of-type { border-top: none; padding-top: 0; }
-.post-title { font-weight: 750; letter-spacing: 0.2px; margin-bottom: 8px; }
+.post-title {
+  font-weight: 750;
+  letter-spacing: 0.2px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.post-title:hover { color: var(--primary); }
 .post-meta { display:flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-.post-content { color: rgba(15, 23, 42, 0.85); white-space: pre-wrap; line-height: 1.55; }
+.post :deep(.post-preview) { margin-bottom: 10px; }
 .post-actions { margin-top: 12px; display:flex; gap: 10px; }
 </style>

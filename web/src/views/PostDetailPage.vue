@@ -14,11 +14,16 @@
 
       <section class="glass card" v-if="post">
         <div class="post-title">{{ post.title }}</div>
-        <div class="post-meta">
-          <span class="pill">作者 {{ authorLabel(post) }}</span>
-          <span class="pill">分类 {{ getCategoryName(post.categoryId) }}</span>
-          <span class="pill">浏览 {{ post.viewCount }}</span>
-          <span class="pill">点赞 {{ post.likeCount }}</span>
+        <div class="post-author-row">
+          <UserAvatar :avatar="pickUserAvatar(post)" :name="authorLabel(post)" size="lg" />
+          <div class="post-author-info">
+            <div class="post-author-name">{{ authorLabel(post) }}</div>
+            <div class="post-meta">
+              <span class="pill">分类 {{ getCategoryName(post.categoryId) }}</span>
+              <span class="pill">浏览 {{ post.viewCount }}</span>
+              <span class="pill">点赞 {{ post.likeCount }}</span>
+            </div>
+          </div>
         </div>
         <div class="post-content markdown-body" v-html="postContentHtml" />
         <div class="post-actions">
@@ -62,7 +67,14 @@
         <div v-else class="empty">暂无评论</div>
 
         <div v-if="replyTo" class="reply-box">
-          <div class="subtle">回复 {{ replyTo.userNickname?.trim() || '未知用户' }}</div>
+          <div class="reply-to-row">
+            <UserAvatar
+              :avatar="replyTo.userAvatar"
+              :name="replyTo.userNickname?.trim() || '未知用户'"
+              size="sm"
+            />
+            <span class="subtle">回复 {{ replyTo.userNickname?.trim() || '未知用户' }}</span>
+          </div>
           <div class="row" style="margin-top: 10px">
             <textarea class="textarea" v-model.trim="replyContent" rows="3" placeholder="写下回复内容..." />
             <div style="display:flex; gap: 10px; justify-content:flex-end;">
@@ -117,13 +129,16 @@ import { computed, onMounted, ref } from 'vue'
 import { renderMarkdown } from '../lib/markdown'
 import { useRoute, useRouter } from 'vue-router'
 import { apiDelete, apiGet, apiPost, getToken, type ApiResult, comment as commentApi } from '../lib/api'
+import { pickUserAvatar } from '../lib/avatar'
 import { showToast } from '../lib/toast'
 import CommentNode from '../components/CommentNode.vue'
+import UserAvatar from '../components/UserAvatar.vue'
 
 type Post = {
   id: number
   userId: number
   userNickname?: string
+  userAvatar?: string
   categoryId: number
   title: string
   content: string
@@ -136,11 +151,18 @@ type Category = {
   name: string
 }
 
+type UserBrief = {
+  id: number
+  avatar?: string
+  nickname?: string
+}
+
 type Comment = {
   id: number
   postId: number
   userId: number
   userNickname?: string
+  userAvatar?: string
   parentId: number
   rootId: number
   content: string
@@ -181,6 +203,33 @@ const aiResults = ref<{ type: 'summary' | 'qa'; content: any }[]>([])
 
 const me = ref<Me | null>(null)
 const deletingPost = ref(false)
+const userAvatarCache = new Map<number, string>()
+
+async function fetchUserAvatar(userId: number): Promise<string> {
+  if (userAvatarCache.has(userId)) return userAvatarCache.get(userId)!
+  const res = await apiGet<ApiResult<UserBrief>>(`/users/${userId}`)
+  const av = res?.code === 200 ? pickUserAvatar(res.data) : ''
+  userAvatarCache.set(userId, av)
+  return av
+}
+
+async function ensureUserAvatar<T extends { userId: number; userAvatar?: string }>(item: T): Promise<T> {
+  let userAvatar = pickUserAvatar(item)
+  if (!userAvatar) userAvatar = await fetchUserAvatar(item.userId)
+  return { ...item, userAvatar: userAvatar || undefined }
+}
+
+async function ensureCommentAvatars(list: Comment[]): Promise<Comment[]> {
+  return Promise.all(
+    list.map(async (c) => {
+      const base = await ensureUserAvatar(c)
+      if (base.children?.length) {
+        base.children = await ensureCommentAvatars(base.children)
+      }
+      return base
+    })
+  )
+}
 
 function authorLabel(p: Post) {
   const name = p.userNickname?.trim()
@@ -212,7 +261,7 @@ async function loadPost() {
     post.value = null
     return
   }
-  post.value = res.data
+  post.value = await ensureUserAvatar(res.data)
 }
 
 async function loadComments() {
@@ -227,7 +276,7 @@ async function loadComments() {
     comments.value = []
     return
   }
-  comments.value = res.data || []
+  comments.value = await ensureCommentAvatars(res.data || [])
 }
 
 async function loadMe() {
@@ -471,10 +520,29 @@ onMounted(async () => {
   margin-bottom: 10px;
 }
 
+.post-author-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.post-author-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.post-author-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
 .post-meta {
   display: flex;
   gap: 10px;
-  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .post-content {
@@ -551,6 +619,12 @@ onMounted(async () => {
   padding: 15px;
   background-color: rgba(0, 0, 0, 0.05);
   border-radius: 8px;
+}
+
+.reply-to-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .ai-card {
