@@ -42,8 +42,10 @@
           <div class="post-meta">
             <span class="pill">作者 {{ authorLabel(p) }}</span>
             <span class="pill">分类 {{ resolveCategoryName(p.categoryId, categories) }}</span>
-            <span class="pill">浏览 {{ p.viewCount }}</span>
-            <span class="pill">点赞 {{ p.likeCount }}</span>
+            <div class="post-stats">
+              <PostStatPill kind="view" :count="p.viewCount" />
+              <PostStatPill kind="like" :count="p.likeCount" />
+            </div>
           </div>
           <PostPreviewContent :content="p.content" />
           <div class="post-actions">
@@ -60,6 +62,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiGet, recommendations, type ApiResult, type RecommendationResult } from '../lib/api'
 import PostPreviewContent from '../components/PostPreviewContent.vue'
+import PostStatPill from '../components/PostStatPill.vue'
 import { authorLabel, getCategoryName as resolveCategoryName, normalizePostAuthor } from '../lib/postDisplay'
 import { showToast } from '../lib/toast'
 type Post = {
@@ -186,7 +189,8 @@ onMounted(() => {
 .post:first-of-type { border-top: none; padding-top: 0; }
 .post-title { font-weight: 750; margin-bottom: 8px; cursor: pointer; }
 .post-title:hover { color: var(--primary); }
-.post-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.post-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.post-stats { display: flex; gap: 6px; flex-wrap: wrap; }
 .post :deep(.post-preview) { margin-bottom: 10px; }
 .post-actions { margin-top: 12px; }
 </style>

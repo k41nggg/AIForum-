@@ -50,8 +50,8 @@
         <div class="post" v-for="p in posts" :key="p.id">
           <div class="post-title" @click="goDetail(p.id)">{{ p.title }}</div>
           <div class="post-meta">
-            <span class="pill">浏览 {{ p.viewCount }}</span>
-            <span class="pill">点赞 {{ p.likeCount }}</span>
+            <PostStatPill kind="view" :count="p.viewCount" />
+            <PostStatPill kind="like" :count="p.likeCount" />
             <span class="pill">{{ formatTime(p.createTime) }}</span>
           </div>
           <PostPreviewContent :content="p.content" />
@@ -66,6 +66,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PostPreviewContent from '../components/PostPreviewContent.vue'
+import PostStatPill from '../components/PostStatPill.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import { apiGet, getToken, userFollow, type ApiResult } from '../lib/api'
 import { showToast } from '../lib/toast'

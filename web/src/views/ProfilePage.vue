@@ -72,8 +72,8 @@
           <div class="post-meta-row">
             <div class="post-meta">
               <span class="pill" :class="getStatusClass(p.status)">{{ getStatusText(p.status) }}</span>
-              <span class="pill">浏览 {{ p.viewCount }}</span>
-              <span class="pill">点赞 {{ p.likeCount }}</span>
+              <PostStatPill kind="view" :count="p.viewCount" />
+              <PostStatPill kind="like" :count="p.likeCount" />
               <span class="pill">{{ new Date(p.createTime).toLocaleString() }}</span>
             </div>
             <button class="btn btn-danger btn-compact" @click="removeMyPost(p.id)" :disabled="deletingId === p.id">
@@ -140,8 +140,8 @@
           <div class="post-title" @click="goDetail(p.id)">{{ p.title }}</div>
           <div class="post-meta">
             <span class="pill">作者 {{ authorLabel(p) }}</span>
-            <span class="pill">浏览 {{ p.viewCount }}</span>
-            <span class="pill">点赞 {{ p.likeCount }}</span>
+            <PostStatPill kind="view" :count="p.viewCount" />
+            <PostStatPill kind="like" :count="p.likeCount" />
           </div>
           <PostPreviewContent :content="p.content" />
           <button class="btn" @click="goDetail(p.id)">查看详情</button>
@@ -155,6 +155,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PostPreviewContent from '../components/PostPreviewContent.vue'
+import PostStatPill from '../components/PostStatPill.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import { apiDelete, apiGet, apiPut, apiUpload, userFollow, type ApiResult, type UserSummary } from '../lib/api'
 import { authorLabel, normalizePostAuthor } from '../lib/postDisplay'

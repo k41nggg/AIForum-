@@ -150,7 +150,14 @@ export const recommendations = {
 export const postCollect = {
   collect: (postId: number) => apiPost<ApiResult<null>>(`/posts/${postId}/collect`),
   uncollect: (postId: number) => apiDelete<ApiResult<null>>(`/posts/${postId}/collect`),
-  check: (postId: number) => apiGet<ApiResult<{ collected: boolean }>>(`/posts/${postId}/collect/check`)
+  check: (postId: number) => apiGet<ApiResult<{ collected: boolean }>>(`/posts/${postId}/collect/check`),
+  collectedIds: () => apiGet<ApiResult<number[]>>('/posts/collected-ids')
+}
+
+export const postLike = {
+  like: (postId: number) => apiPost<ApiResult<null>>(`/posts/${postId}/like`),
+  check: (postId: number) => apiGet<ApiResult<{ liked: boolean }>>(`/posts/${postId}/like/check`),
+  likedIds: () => apiGet<ApiResult<number[]>>('/posts/liked-ids')
 }
 
 export const messages = {

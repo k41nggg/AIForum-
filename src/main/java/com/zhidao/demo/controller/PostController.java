@@ -23,7 +23,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/posts")
@@ -226,6 +228,42 @@ public class PostController {
         return Result.success(postMapper.selectPageWithNickname(page, wrapper));
     }
 
+    /** 当前用户已点赞的帖子 ID 列表（帖子列表页批量展示状态） */
+    @GetMapping("/liked-ids")
+    public Result<List<Long>> myLikedPostIds() {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return Result.success(List.of());
+        }
+        List<Long> ids = userActionService.list(new LambdaQueryWrapper<UserAction>()
+                        .eq(UserAction::getUserId, userId)
+                        .eq(UserAction::getType, UserAction.TYPE_LIKE_POST)
+                        .orderByDesc(UserAction::getCreateTime))
+                .stream()
+                .map(UserAction::getTargetId)
+                .distinct()
+                .collect(Collectors.toList());
+        return Result.success(ids);
+    }
+
+    /** 当前用户已收藏的帖子 ID 列表 */
+    @GetMapping("/collected-ids")
+    public Result<List<Long>> myCollectedPostIds() {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return Result.success(List.of());
+        }
+        List<Long> ids = userActionService.list(new LambdaQueryWrapper<UserAction>()
+                        .eq(UserAction::getUserId, userId)
+                        .eq(UserAction::getType, UserAction.TYPE_COLLECT_POST)
+                        .orderByDesc(UserAction::getCreateTime))
+                .stream()
+                .map(UserAction::getTargetId)
+                .distinct()
+                .collect(Collectors.toList());
+        return Result.success(ids);
+    }
+
     // 6. 帖子详情与浏览量统计
     @GetMapping("/{id}")
     public Result<Post> getPostDetail(@PathVariable Long id) {
@@ -266,6 +304,19 @@ public class PostController {
         notificationService.onPostLiked(id, userId);
 
         return Result.success(null);
+    }
+
+    @GetMapping("/{id}/like/check")
+    public Result<Map<String, Boolean>> checkLiked(@PathVariable Long id) {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return Result.success(Map.of("liked", false));
+        }
+        long count = userActionService.count(new LambdaQueryWrapper<UserAction>()
+                .eq(UserAction::getUserId, userId)
+                .eq(UserAction::getTargetId, id)
+                .eq(UserAction::getType, UserAction.TYPE_LIKE_POST));
+        return Result.success(Map.of("liked", count > 0));
     }
 
     @PostMapping("/{id}/collect")

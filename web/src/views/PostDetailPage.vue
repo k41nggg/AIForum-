@@ -50,17 +50,26 @@
               </button>
             </div>
             <div class="post-meta">
-              <span class="pill">浏览 {{ post.viewCount }}</span>
-              <span class="pill">点赞 {{ post.likeCount }}</span>
+              <PostStatPill kind="view" :count="post.viewCount" />
+              <PostStatPill kind="like" :count="post.likeCount" :active="postLiked" />
+              <PostStatPill kind="collect" :count="post.collectCount ?? 0" :active="collected" />
             </div>
           </div>
         </div>
         <div class="post-content markdown-body" v-html="postContentHtml" />
         <div class="post-actions">
-          <button class="btn" @click="likePost" :disabled="liking">{{ liking ? '处理中...' : '点赞' }}</button>
-          <button class="btn" @click="toggleCollect" :disabled="collectLoading">
-            {{ collectLoading ? '处理中...' : collected ? '已收藏' : '收藏' }}
-          </button>
+          <PostLikeButton
+            :liked="postLiked"
+            :count="post.likeCount"
+            :loading="liking"
+            @click="likePost"
+          />
+          <PostCollectButton
+            :collected="collected"
+            :count="post.collectCount ?? 0"
+            :loading="collectLoading"
+            @click="toggleCollect"
+          />
           <button class="btn" v-if="canDeletePost()" @click="deletePost" :disabled="deletingPost">
             {{ deletingPost ? '删除中...' : '删除帖子' }}
           </button>
@@ -195,7 +204,10 @@
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { renderMarkdown } from '../lib/markdown'
 import { useRoute, useRouter } from 'vue-router'
-import { apiDelete, apiGet, apiPost, getToken, postCollect, userFollow, type ApiResult, comment as commentApi } from '../lib/api'
+import { apiDelete, apiGet, apiPost, getToken, postCollect, postLike, userFollow, type ApiResult, comment as commentApi } from '../lib/api'
+import PostCollectButton from '../components/PostCollectButton.vue'
+import PostLikeButton from '../components/PostLikeButton.vue'
+import PostStatPill from '../components/PostStatPill.vue'
 import { pickUserAvatar } from '../lib/avatar'
 import { showToast } from '../lib/toast'
 import CommentNode from '../components/CommentNode.vue'
@@ -211,6 +223,7 @@ type Post = {
   content: string
   viewCount: number
   likeCount: number
+  collectCount?: number
 }
 
 type Category = {
@@ -269,6 +282,7 @@ function countComments(list: Comment[]): number {
 const commentTotalCount = computed(() => countComments(comments.value))
 
 const liking = ref(false)
+const postLiked = ref(false)
 const collected = ref(false)
 const collectLoading = ref(false)
 
@@ -394,6 +408,14 @@ async function loadPost() {
   post.value = await ensureUserAvatar(res.data)
   await loadFollowStatus()
   await loadCollectStatus()
+  await loadLikeStatus()
+}
+
+async function loadLikeStatus() {
+  postLiked.value = false
+  if (!getToken() || !post.value) return
+  const res = await postLike.check(post.value.id)
+  if (res?.code === 200) postLiked.value = Boolean(res.data?.liked)
 }
 
 async function loadCollectStatus() {
@@ -422,9 +444,16 @@ async function toggleCollect() {
     showToast('error', '操作失败', res.message || '操作失败')
     return
   }
-  collected.value = !collected.value
-  showToast('success', collected.value ? '已收藏' : '已取消收藏', '')
-  await loadPost()
+  const wasCollected = collected.value
+  collected.value = !wasCollected
+  if (post.value.collectCount == null) post.value.collectCount = 0
+  if (wasCollected) {
+    if (post.value.collectCount > 0) post.value.collectCount -= 1
+    showToast('success', '已取消收藏', '')
+  } else {
+    post.value.collectCount += 1
+    showToast('success', '已收藏', '')
+  }
 }
 
 async function loadFollowStatus() {
@@ -490,8 +519,10 @@ async function likePost() {
     showToast('error', '需要登录', '登录后才能点赞')
     return
   }
+  if (postLiked.value || !post.value) return
+
   liking.value = true
-  const res = await apiPost<ApiResult<null>>(`/posts/${postId.value}/like`)
+  const res = await postLike.like(post.value.id)
   liking.value = false
 
   if (!res) {
@@ -499,11 +530,16 @@ async function likePost() {
     return
   }
   if (res.code !== 200) {
+    if (res.message === '已点赞') {
+      postLiked.value = true
+      return
+    }
     showToast('error', '点赞失败', res.message || '点赞失败')
     return
   }
-  showToast('success', '点赞成功', '感谢你的支持')
-  await loadPost()
+  postLiked.value = true
+  post.value.likeCount += 1
+  showToast('success', '点赞成功', '')
 }
 
 async function likeComment(commentId: number) {
@@ -827,8 +863,9 @@ onMounted(async () => {
 
 .post-meta {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .post-content {
