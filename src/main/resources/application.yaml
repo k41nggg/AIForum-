@@ -47,10 +47,10 @@ app:
 # 硅基流动（OpenAI 兼容）；api-key 也可用环境变量 AI_API_KEY 覆盖
 ai:
   base-url: https://api.siliconflow.cn/v1
-  api-key: sk-vmvxqnxevihjydnipkdpicaisgdxjpawwmpnlvlixqxuewyv
+  api-key: sk-hnzwpxhkklqditplfnjajkiqdiajfrfuhrvpqikmcvxkqgao
   model: Qwen/Qwen3-8B
 
 # 兼容旧配置名（未设置 ai.api-key 时可回退）
 deepseek:
   api:
-    key: sk-vmvxqnxevihjydnipkdpicaisgdxjpawwmpnlvlixqxuewyv
+    key: 111

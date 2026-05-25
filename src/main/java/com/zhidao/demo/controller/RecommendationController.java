@@ -2,18 +2,16 @@ package com.zhidao.demo.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zhidao.demo.common.Result;
-import com.zhidao.demo.entity.Post;
+import com.zhidao.demo.dto.RecommendationResponse;
 import com.zhidao.demo.entity.User;
 import com.zhidao.demo.service.RecommendationService;
 import com.zhidao.demo.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Collections;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/recommendations")
@@ -25,38 +23,37 @@ public class RecommendationController {
     @Autowired
     private UserService userService;
 
-    private Long getCurrentUserId() {
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal instanceof com.zhidao.demo.entity.User) {
-            return ((com.zhidao.demo.entity.User) principal).getId();
+    @GetMapping
+    public Result<RecommendationResponse> getRecommendations() {
+        User user = requireUser();
+        if (user == null) {
+            return Result.error("未登录");
         }
-        if (principal instanceof org.springframework.security.core.userdetails.UserDetails) {
-            String username = ((org.springframework.security.core.userdetails.UserDetails) principal).getUsername();
-            User user = userService.getOne(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
-            return user != null ? user.getId() : null;
-        }
-        if (principal instanceof String && !"anonymousUser".equals(principal)) {
-             User user = userService.getOne(new LambdaQueryWrapper<User>().eq(User::getUsername, (String)principal));
-             return user != null ? user.getId() : null;
-        }
-        return null;
+        return Result.success(recommendationService.getRecommendations(user));
     }
 
-
-    @GetMapping
-    public Result<List<Post>> getRecommendations() {
-        Long userId = getCurrentUserId();
-        if (userId == null) {
-            // For anonymous users, return popular posts or an empty list
-            return Result.success(Collections.emptyList());
-        }
-
-        User user = userService.getById(userId);
+    @PostMapping("/refresh")
+    public Result<RecommendationResponse> refreshRecommendations() {
+        User user = requireUser();
         if (user == null) {
-            return Result.error("User not found");
+            return Result.error("未登录");
         }
+        return Result.success(recommendationService.refreshRecommendations(user));
+    }
 
-        List<Post> recommendedPosts = recommendationService.recommendPosts(user);
-        return Result.success(recommendedPosts);
+    private User requireUser() {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (principal instanceof User u) {
+            return u;
+        }
+        String username;
+        if (principal instanceof org.springframework.security.core.userdetails.UserDetails details) {
+            username = details.getUsername();
+        } else if (principal instanceof String s && !"anonymousUser".equals(s)) {
+            username = s;
+        } else {
+            return null;
+        }
+        return userService.getOne(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
     }
 }

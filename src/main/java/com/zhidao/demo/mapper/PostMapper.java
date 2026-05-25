@@ -22,6 +22,12 @@ public interface PostMapper extends BaseMapper<Post> {
     @Update("UPDATE forum_post SET like_count = like_count + 1 WHERE id = #{postId}")
     int incLikeCount(@Param("postId") Long postId);
 
+    @Update("UPDATE forum_post SET collect_count = collect_count + 1 WHERE id = #{postId}")
+    int incCollectCount(@Param("postId") Long postId);
+
+    @Update("UPDATE forum_post SET collect_count = GREATEST(collect_count - 1, 0) WHERE id = #{postId}")
+    int decCollectCount(@Param("postId") Long postId);
+
     @Select("SELECT forum_post.*, u.nickname AS user_nickname, u.avatar AS user_avatar " +
             "FROM forum_post " +
             "LEFT JOIN sys_user u ON forum_post.user_id = u.id " +

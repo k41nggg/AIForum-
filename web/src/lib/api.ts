@@ -132,6 +132,27 @@ export type MessagePage = {
   size: number
 }
 
+export type RecommendationResult = {
+  posts: unknown[]
+  cached: boolean
+  updatedAt?: string
+  summary?: string
+  actionCount?: number
+  hint?: string
+  cooldownSeconds?: number
+}
+
+export const recommendations = {
+  get: () => apiGet<ApiResult<RecommendationResult>>('/recommendations'),
+  refresh: () => apiPost<ApiResult<RecommendationResult>>('/recommendations/refresh')
+}
+
+export const postCollect = {
+  collect: (postId: number) => apiPost<ApiResult<null>>(`/posts/${postId}/collect`),
+  uncollect: (postId: number) => apiDelete<ApiResult<null>>(`/posts/${postId}/collect`),
+  check: (postId: number) => apiGet<ApiResult<{ collected: boolean }>>(`/posts/${postId}/collect/check`)
+}
+
 export const messages = {
   list: (current = 1, size = 20) =>
     apiGet<ApiResult<MessagePage>>(`/messages?current=${current}&size=${size}`),

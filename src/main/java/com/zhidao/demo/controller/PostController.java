@@ -269,12 +269,58 @@ public class PostController {
     }
 
     @PostMapping("/{id}/collect")
+    @Transactional
     public Result<Void> collectPost(@PathVariable Long id) {
+        Long userId = getCurrentUserId();
+        if (userId == null) return Result.error("未登录");
+
         Post post = postService.getById(id);
         if (post == null) return Result.error("帖子不存在");
-        post.setCollectCount(post.getCollectCount() + 1);
-        postService.updateById(post);
+
+        UserAction action = new UserAction();
+        action.setUserId(userId);
+        action.setTargetId(id);
+        action.setType(UserAction.TYPE_COLLECT_POST);
+
+        try {
+            userActionService.save(action);
+        } catch (DuplicateKeyException ex) {
+            return Result.error("已收藏");
+        }
+
+        postMapper.incCollectCount(id);
         return Result.success(null);
+    }
+
+    @DeleteMapping("/{id}/collect")
+    @Transactional
+    public Result<Void> uncollectPost(@PathVariable Long id) {
+        Long userId = getCurrentUserId();
+        if (userId == null) return Result.error("未登录");
+
+        boolean removed = userActionService.remove(new LambdaQueryWrapper<UserAction>()
+                .eq(UserAction::getUserId, userId)
+                .eq(UserAction::getTargetId, id)
+                .eq(UserAction::getType, UserAction.TYPE_COLLECT_POST));
+        if (!removed) {
+            return Result.error("未收藏");
+        }
+
+        postMapper.decCollectCount(id);
+        return Result.success(null);
+    }
+
+    @GetMapping("/{id}/collect/check")
+    public Result<Map<String, Boolean>> checkCollected(@PathVariable Long id) {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return Result.success(Map.of("collected", false));
+        }
+        long count = userActionService.count(new LambdaQueryWrapper<UserAction>()
+                .eq(UserAction::getUserId, userId)
+                .eq(UserAction::getTargetId, id)
+                .eq(UserAction::getType, UserAction.TYPE_COLLECT_POST));
+        return Result.success(Map.of("collected", count > 0));
     }
 
     // 8. 帖子举报处理 (模拟接口)

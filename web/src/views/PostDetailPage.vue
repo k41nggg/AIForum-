@@ -58,6 +58,9 @@
         <div class="post-content markdown-body" v-html="postContentHtml" />
         <div class="post-actions">
           <button class="btn" @click="likePost" :disabled="liking">{{ liking ? '处理中...' : '点赞' }}</button>
+          <button class="btn" @click="toggleCollect" :disabled="collectLoading">
+            {{ collectLoading ? '处理中...' : collected ? '已收藏' : '收藏' }}
+          </button>
           <button class="btn" v-if="canDeletePost()" @click="deletePost" :disabled="deletingPost">
             {{ deletingPost ? '删除中...' : '删除帖子' }}
           </button>
@@ -192,7 +195,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { renderMarkdown } from '../lib/markdown'
 import { useRoute, useRouter } from 'vue-router'
-import { apiDelete, apiGet, apiPost, getToken, userFollow, type ApiResult, comment as commentApi } from '../lib/api'
+import { apiDelete, apiGet, apiPost, getToken, postCollect, userFollow, type ApiResult, comment as commentApi } from '../lib/api'
 import { pickUserAvatar } from '../lib/avatar'
 import { showToast } from '../lib/toast'
 import CommentNode from '../components/CommentNode.vue'
@@ -266,6 +269,8 @@ function countComments(list: Comment[]): number {
 const commentTotalCount = computed(() => countComments(comments.value))
 
 const liking = ref(false)
+const collected = ref(false)
+const collectLoading = ref(false)
 
 const summarizing = ref(false)
 const asking = ref(false)
@@ -388,6 +393,38 @@ async function loadPost() {
   }
   post.value = await ensureUserAvatar(res.data)
   await loadFollowStatus()
+  await loadCollectStatus()
+}
+
+async function loadCollectStatus() {
+  collected.value = false
+  if (!getToken() || !post.value) return
+  const res = await postCollect.check(post.value.id)
+  if (res?.code === 200) collected.value = Boolean(res.data?.collected)
+}
+
+async function toggleCollect() {
+  if (!getToken()) {
+    showToast('error', '需要登录', '登录后才能收藏')
+    return
+  }
+  if (!post.value) return
+  collectLoading.value = true
+  const res = collected.value
+    ? await postCollect.uncollect(post.value.id)
+    : await postCollect.collect(post.value.id)
+  collectLoading.value = false
+  if (!res) {
+    showToast('error', '操作失败', '无法连接后端服务')
+    return
+  }
+  if (res.code !== 200) {
+    showToast('error', '操作失败', res.message || '操作失败')
+    return
+  }
+  collected.value = !collected.value
+  showToast('success', collected.value ? '已收藏' : '已取消收藏', '')
+  await loadPost()
 }
 
 async function loadFollowStatus() {
@@ -517,12 +554,12 @@ async function submitComment() {
   await loadComments()
 }
 
-async function setReplyTo(c: Comment) {
+async function setReplyTo(c: Pick<Comment, 'id' | 'userId' | 'userNickname' | 'userAvatar'>) {
   if (!getToken()) {
     showToast('error', '需要登录', '登录后才能回复')
     return
   }
-  replyTo.value = c
+  replyTo.value = c as Comment
   replyContent.value = ''
   await nextTick()
   replyInputRef.value?.focus()
