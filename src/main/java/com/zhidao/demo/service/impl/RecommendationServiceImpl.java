@@ -103,15 +103,31 @@ public class RecommendationServiceImpl implements RecommendationService {
             }
         }
 
-        saveCache(user.getId(), recommendedIds, summary, snapshot.actionCount());
+        try {
+            saveCache(user.getId(), recommendedIds, summary, snapshot.actionCount());
+        } catch (Exception e) {
+            log.error("保存推荐缓存失败 userId={}", user.getId(), e);
+        }
 
-        UserRecommendation saved = getCacheRow(user.getId());
         RecommendationResponse resp = new RecommendationResponse();
-        fillFromCache(resp, saved);
+        resp.setPosts(loadPostsByIds(recommendedIds));
+        resp.setCached(!recommendedIds.isEmpty());
+        resp.setUpdatedAt(LocalDateTime.now());
+        resp.setSummary(summary);
+        resp.setActionCount(snapshot.actionCount());
+        if (recommendedIds.isEmpty()) {
+            resp.setHint("点击「AI 刷新推荐」生成个性化列表");
+        }
         return resp;
     }
 
     private void fillFromCache(RecommendationResponse resp, UserRecommendation cache) {
+        if (cache == null) {
+            resp.setPosts(List.of());
+            resp.setCached(false);
+            resp.setHint("点击「AI 刷新推荐」生成个性化列表");
+            return;
+        }
         List<Long> ids = parsePostIds(cache.getPostIds());
         resp.setPosts(loadPostsByIds(ids));
         resp.setCached(!ids.isEmpty());
