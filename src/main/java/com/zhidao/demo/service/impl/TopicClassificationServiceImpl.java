@@ -82,28 +82,22 @@ public class TopicClassificationServiceImpl implements TopicClassificationServic
                         c.getId(), toJsonString(c.getName()), c.getParentId() == null ? 0 : c.getParentId()))
                 .collect(Collectors.joining(",", "[", "]"));
 
-        ChatRequest chatRequest = new ChatRequest();
-        chatRequest.setModel(null);
-        chatRequest.setMessages(Arrays.asList(
-                new Message("system",
-                        "你是论坛话题智能分类助手。请严格只输出 JSON，不要输出Markdown代码块，不要输出多余文字。"),
+        // 使用 Tool Calling 方式
+        List<Message> messages = Arrays.asList(
+                new Message("system", "你是论坛话题智能分类助手，请调用 classify_topic 工具返回结构化结果。"),
                 new Message("user",
-                        "任务：根据用户正在编辑的帖子标题与正文，从数据库已有分类中选择最匹配的分类。\n" +
-                                "如果没有任何分类合适，请提出一个新分类（只允许父子两级关系）：要么新建一个顶级分类，要么在某个顶级分类下新建子分类。\n\n" +
-                                "现有分类 JSON 列表：" + categoriesJson + "\n\n" +
-                                "请按如下 JSON 格式输出：\n" +
-                                "{\n" +
-                                "  \"matchType\": \"EXISTING\" 或 \"NEW\",\n" +
-                                "  \"categoryName\": \"分类名称\",\n" +
-                                "  \"parentName\": \"父分类名称（顶级分类则为空字符串）\",\n" +
-                                "  \"confidence\": 0.0-1.0,\n" +
-                                "  \"reason\": \"为什么推荐该分类（中文，尽量简短）\"\n" +
-                                "}\n\n" +
+                        "现有分类 JSON 列表：" + categoriesJson + "\n\n" +
                                 "标题：" + title + "\n\n正文：\n" + content)
-        ));
+        );
 
-        String raw = aiService.getCompletion(chatRequest)
-                .map(r -> r.getChoices().get(0).getMessage().getContent())
+        String raw = aiService.getCompletionWithTools(messages, List.of(com.zhidao.demo.util.AiTools.classifyTopicTool()))
+                .map(resp -> {
+                    Message msg = resp.getChoices().get(0).getMessage();
+                    if (msg.getTool_calls() != null && !msg.getTool_calls().isEmpty()) {
+                        return msg.getTool_calls().get(0).getFunction().getArguments();
+                    }
+                    return null;
+                })
                 .block();
 
         AiSuggest suggest = parseSuggest(raw);

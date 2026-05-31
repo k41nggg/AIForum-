@@ -12,4 +12,10 @@ import java.util.List;
 public class ChatRequest {
     private String model;
     private List<Message> messages;
+
+    /** Tool Calling 支持：工具定义列表 */
+    private List<ToolDefinition> tools;
+
+    /** Tool Calling 支持：工具选择策略 */
+    private Object tool_choice;
 }

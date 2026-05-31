@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhidao.demo.dto.ChatRequest;
+import com.zhidao.demo.dto.ChatResponse;
 import com.zhidao.demo.dto.Message;
 import com.zhidao.demo.dto.RecommendationResponse;
 import com.zhidao.demo.entity.*;
@@ -335,18 +336,24 @@ public class RecommendationServiceImpl implements RecommendationService {
                 + "  \"postIds\": [按推荐优先级排序的帖子 id 数字数组]\n"
                 + "}";
 
-        ChatRequest req = new ChatRequest();
-        req.setModel(null);
-        req.setMessages(Arrays.asList(
-                new Message("system", "你是论坛个性化推荐助手。严格只输出 JSON，不要 Markdown 代码块。postIds 必须来自候选列表、不重复、数量在 " + MIN_RECOMMEND + " 到 " + MAX_RECOMMEND + " 之间。"),
+        // 使用 Tool Calling 方式
+        List<Message> messages = Arrays.asList(
+                new Message("system", "你是论坛个性化推荐助手，请调用 recommend_posts 工具返回推荐结果。"),
                 new Message("user", userMsg)
-        ));
+        );
 
         try {
-            String raw = aiService.getCompletion(req)
-                    .map(r -> r.getChoices().get(0).getMessage().getContent())
-                    .block();
-            return parseAiRecommend(raw);
+            ChatResponse resp = aiService.getCompletionWithTools(
+                    messages,
+                    List.of(com.zhidao.demo.util.AiTools.recommendPostsTool())
+            ).block();
+
+            Message msg = resp.getChoices().get(0).getMessage();
+            if (msg.getTool_calls() != null && !msg.getTool_calls().isEmpty()) {
+                String args = msg.getTool_calls().get(0).getFunction().getArguments();
+                return parseAiRecommend(args); // 复用解析逻辑
+            }
+            return fallbackFromCandidates(candidates);
         } catch (Exception e) {
             log.error("AI 推荐失败", e);
             return fallbackFromCandidates(candidates);
@@ -375,7 +382,10 @@ public class RecommendationServiceImpl implements RecommendationService {
                     }
                 }
             }
-            return new AiRecommend(ids, "");
+            String summary = "";
+            if (node.has("preferenceSummary")) summary = node.get("preferenceSummary").asText("");
+            else if (node.has("summary")) summary = node.get("summary").asText("");
+            return new AiRecommend(ids, summary);
         } catch (Exception e) {
             log.warn("解析 AI 推荐 JSON 失败: {}", raw, e);
             return new AiRecommend(List.of(), "");

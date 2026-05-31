@@ -3,7 +3,11 @@ package com.zhidao.demo.service;
 import com.zhidao.demo.dto.AuditAiResult;
 import com.zhidao.demo.dto.ChatRequest;
 import com.zhidao.demo.dto.ChatResponse;
+import com.zhidao.demo.dto.Message;
+import com.zhidao.demo.dto.ToolDefinition;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 public interface AIService {
     Mono<ChatResponse> getCompletion(ChatRequest chatRequest);
@@ -15,4 +19,9 @@ public interface AIService {
      * 目的：在一次模型调用中完成两件事，降低 token 与请求次数。
      */
     Mono<AuditAiResult> auditAndSummarize(String title, String content);
+
+    /**
+     * 使用 Tool Calling 方式调用模型。
+     */
+    Mono<ChatResponse> getCompletionWithTools(List<Message> messages, List<ToolDefinition> tools);
 }

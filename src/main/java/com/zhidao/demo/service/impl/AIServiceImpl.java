@@ -6,6 +6,7 @@ import com.zhidao.demo.dto.AuditAiResult;
 import com.zhidao.demo.dto.ChatRequest;
 import com.zhidao.demo.dto.ChatResponse;
 import com.zhidao.demo.dto.Message;
+import com.zhidao.demo.dto.ToolDefinition;
 import com.zhidao.demo.service.AIService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +19,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.core.publisher.Mono;
 
 import java.util.Arrays;
+import java.util.List;
 
 @Service
 public class AIServiceImpl implements AIService {
@@ -91,34 +93,40 @@ public class AIServiceImpl implements AIService {
 
     @Override
     public Mono<AuditAiResult> auditAndSummarize(String title, String content) {
+        // 使用 Tool Calling 方式
+        List<Message> messages = Arrays.asList(
+                new Message("system", "你是论坛内容审核助手，请使用 audit_post 工具完成审核与总结。"),
+                new Message("user", "标题：" + (title == null ? "" : title) + "\n\n正文：\n" + (content == null ? "" : content))
+        );
+
+        return getCompletionWithTools(messages, List.of(com.zhidao.demo.util.AiTools.auditPostTool()))
+                .map(resp -> {
+                    Message msg = resp.getChoices().get(0).getMessage();
+                    if (msg.getTool_calls() != null && !msg.getTool_calls().isEmpty()) {
+                        String args = msg.getTool_calls().get(0).getFunction().getArguments();
+                        try {
+                            String json = stripMarkdownCodeFence(args);
+                            AuditAiResult r = objectMapper.readValue(json, AuditAiResult.class);
+                            if (r.getReason() == null) r.setReason("");
+                            if (r.getSummary() == null) r.setSummary("");
+                            return r;
+                        } catch (Exception e) {
+                            log.warn("Tool Calling 审核结果解析失败, raw={}", args);
+                        }
+                    }
+                    // fallback
+                    return new AuditAiResult(false, "AI 未返回有效工具调用", "");
+                });
+    }
+
+    @Override
+    public Mono<ChatResponse> getCompletionWithTools(List<Message> messages, List<ToolDefinition> tools) {
         ChatRequest chatRequest = new ChatRequest();
         chatRequest.setModel(defaultModel());
-        chatRequest.setMessages(Arrays.asList(
-                new Message("system", "你是论坛内容审核与总结助手。请严格按 JSON 输出，不要输出任何多余文字。"),
-                new Message("user",
-                        "请完成两件事：\n" +
-                                "1) 审核文本是否适合在公共论坛发布（垃圾广告、敏感内容、违规言论都算不适合）。\n" +
-                                "2) 生成一句话中文总结（尽量不超过60字）。\n\n" +
-                                "输出 JSON 格式如下：\n" +
-                                "{\"approved\": true/false, \"reason\": \"不通过原因（通过则留空）\", \"summary\": \"详细总结这个帖子内容\"}\n\n" +
-                                "标题：" + title + "\n\n正文：\n" + content)
-        ));
-
-        return getCompletion(chatRequest)
-                .map(resp -> resp.getChoices().get(0).getMessage().getContent())
-                .flatMap(text -> {
-                    try {
-                        String json = stripMarkdownCodeFence(text);
-                        AuditAiResult r = objectMapper.readValue(json, AuditAiResult.class);
-                        if (r.getReason() == null) r.setReason("");
-                        if (r.getSummary() == null) r.setSummary("");
-                        return Mono.just(r);
-                    } catch (Exception e) {
-                        log.warn("AI 审核 JSON 解析失败, raw={}", text);
-                        AuditAiResult fallback = new AuditAiResult(false, "AI 返回非预期格式", "");
-                        return Mono.just(fallback);
-                    }
-                });
+        chatRequest.setMessages(messages);
+        chatRequest.setTools(tools);
+        chatRequest.setTool_choice("auto");
+        return getCompletion(chatRequest);
     }
 
     private static String stripMarkdownCodeFence(String text) {
